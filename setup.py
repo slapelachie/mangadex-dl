@@ -1,12 +1,12 @@
 from setuptools import setup
 
-LONG_DESC = open("README.org").read()
+LONG_DESC = open("README.md").read()
 
 setup(
     name="mangadex_dl",
     version="1.0.0a0",
     description="Downloader and archiver for mangadex",
-    long_description_content_type="text/plain",
+    long_description_content_type="text/markdown",
     long_description=LONG_DESC,
     classifiers=[
         "Development Status :: 3 - Alpha",
