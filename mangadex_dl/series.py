@@ -1,77 +1,66 @@
-from typing import List
+import json
+from typing import List, Dict, Tuple
 
-from mangadex_dl import utils
+import mangadex_dl
+from mangadex_dl import chapter as md_chapter
 
 
-class Series:
-    def __init__(self, id: str):
-        self._id = id
-        self._title = None
-        self._description = None
-        self._year = None
-        self._author = None
-        self._chapters = []
+def get_chapter_cache(cache_file_path: str):
+    try:
+        with open(cache_file_path, "r", encoding="utf-8") as fin:
+            return json.load(fin)
+    except FileNotFoundError:
+        return []
 
-        self._get_info()
-        print(f"Created new series {self._title} ({self._id})")
 
-    def _get_info(self):
-        print(f"Downloading info for series {self._title} ({self._id})")
-        response = utils.get_mangadex_response(
-            f"https://api.mangadex.org/manga/{self._id}?includes[]=author"
-        )
+def get_series_info(series_id: str) -> Dict:
+    print(f"Downloading info for series ({series_id})")
 
-        data = response.get("data").get("attributes")
-        relationships = response.get("data").get("relationships")
+    series_info = {"id": series_id}
 
-        self._title = data.get("title").get("en")
-        self._description = data.get("description").get("en")
-        self._year = data.get("year")
+    response = mangadex_dl.get_mangadex_response(
+        f"https://api.mangadex.org/manga/{series_id}?includes[]=author"
+    )
 
-        for relationship in relationships:
-            if relationship.get("type") == "author":
-                self._author = relationship.get("attributes").get("name")
+    data = response.get("data").get("attributes")
+    relationships = response.get("data").get("relationships")
 
-    def _get_chapters(self):
-        from mangadex_dl.chapter import Chapter
-        from mangadex_dl.chapter import get_chapter_cache
+    series_info["title"] = data.get("title", {}).get("en", "No Title")
+    series_info["description"] = data.get("description", {}).get("en", "")
+    series_info["year"] = data.get("year", 1900)
 
-        print(f"Getting chapters for series {self._title} ({self._id})")
+    for relationship in relationships:
+        if relationship.get("type") == "author":
+            series_info["author"] = relationship.get("attributes", {}).get(
+                "name", "No Author"
+            )
+            break
+    else:
+        series_info["author"] = "No Author"
 
-        response = utils.get_mangadex_response(
-            f"https://api.mangadex.org/manga/{self._id}/aggregate?translatedLanguage[]=en"
-        )
+    return series_info
 
-        volumes = response.get("volumes")
 
-        for volume in volumes.values():
-            chapters = (
-                volume.get("chapters")
-                if not isinstance(volume.get("chapters"), list)
-                else {"0": volume.get("chapters")[0]}
-            ).values()
+def get_chapters(series_id: str, excluded_chapters: Tuple = ()) -> List:
+    # print(f"Getting chapters for series {self._title} ({self._id})")
+    chapters = []
 
-            for chapter in chapters:
-                if chapter.get("id") not in get_chapter_cache():
-                    self._chapters.append(Chapter(chapter.get("id"), series=self))
+    response = mangadex_dl.get_mangadex_response(
+        f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
+    )
 
-    def get_id(self) -> str:
-        return self._id
+    volumes = response.get("volumes")
 
-    def get_title(self) -> str:
-        return self._title
+    for volume in volumes.values():
+        chapters_raw = (
+            volume.get("chapters")
+            if not isinstance(volume.get("chapters"), list)
+            else {"0": volume.get("chapters")[0]}
+        ).values()
 
-    def get_description(self) -> str:
-        return self._description
+        for chapter in chapters_raw:
+            chapter_id = chapter.get("id")
+            if chapter_id not in excluded_chapters:
+                chapters.append(md_chapter.get_chapter_info(chapter_id))
 
-    def get_year(self):
-        return self._year
-
-    def get_author(self):
-        return self._author
-
-    def get_chapters(self) -> List["Chapter"]:
-        if len(self._chapters) == 0:
-            self._get_chapters()
-
-        return self._chapters
+    return chapters
