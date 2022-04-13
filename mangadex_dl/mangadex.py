@@ -12,7 +12,9 @@ from mangadex_dl import chapter as md_chapter
 class MangaDexDL:
     """Handles all MangaDexDL related stuff"""
 
-    def __init__(self, cache_file_path: str, out_directory: str):
+    def __init__(
+        self, cache_file_path: str, out_directory: str, override: bool = False
+    ):
         """
         Arguments:
             cache_file_path (str): the path for the file containing downloaded hashes is stored
@@ -20,6 +22,7 @@ class MangaDexDL:
         """
         self._cache_file_path = cache_file_path
         self._output_directory = out_directory
+        self._override = override
 
         self._ensure_cache_file_exists()
 
@@ -83,9 +86,13 @@ class MangaDexDL:
             series_id (str): the UUID of the mangadex series
         """
         series_info = md_series.get_series_info(series_id)
-        chapter_cache = md_chapter.get_chapter_cache(self._cache_file_path)
+        excluded_chapters = (
+            md_chapter.get_chapter_cache(self._cache_file_path)
+            if not self._override
+            else []
+        )
         series_chapters = md_series.get_series_chapters(
-            series_id, excluded_chapters=chapter_cache
+            series_id, excluded_chapters=excluded_chapters
         )
 
         # Process all chapters
@@ -99,7 +106,13 @@ class MangaDexDL:
         Arguments:
             chapter_id (str): the UUID of the mangadex chapter
         """
-        chapter_info = md_chapter.get_chapter_info(chapter_id)
-        series_info = md_series.get_series_info(chapter_info.get("series_id"))
+        excluded_chapters = (
+            md_chapter.get_chapter_cache(self._cache_file_path)
+            if not self._override
+            else []
+        )
+        if chapter_id not in excluded_chapters:
+            chapter_info = md_chapter.get_chapter_info(chapter_id)
+            series_info = md_series.get_series_info(chapter_info.get("series_id"))
 
-        self._process_chapter(chapter_info, series_info)
+            self._process_chapter(chapter_info, series_info)

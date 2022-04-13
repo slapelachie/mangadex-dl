@@ -28,6 +28,9 @@ def get_args() -> argparse.ArgumentParser:
         "--cache-file",
         default=os.path.expandvars("$HOME/.cache/mangadex-dl/downloaded.json"),
     )
+    arg.add_argument(
+        "--override", action="store_true", help="Ignores any UUIDs in the cache file"
+    )
     arg.add_argument("url", help="url to download")
 
     return arg
@@ -47,7 +50,9 @@ def parse_args(parser: argparse.ArgumentParser):
         sys.exit(1)
 
     mangadex = MangaDexDL(
-        os.path.realpath(args.cache_file), os.path.realpath(args.out_directory)
+        os.path.realpath(args.cache_file),
+        os.path.realpath(args.out_directory),
+        override=args.override,
     )
     mangadex.handle_url(args.url)
 

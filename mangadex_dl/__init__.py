@@ -10,3 +10,8 @@ from mangadex_dl.utils import (
 )
 
 from mangadex_dl.mangadex import MangaDexDL
+
+__version__ = "1.0.0a0"
+__author__ = "slapelachie"
+__license__ = "GPLv2"
+__email__ = "lslape@slapelachie.xyz"
