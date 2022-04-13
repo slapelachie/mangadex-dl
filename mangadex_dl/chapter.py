@@ -4,12 +4,15 @@ import os
 import io
 import sys
 import json
+import logging
 from math import floor
 from typing import Dict, List
 
 from PIL import Image
 
 import mangadex_dl
+
+logger = logging.getLogger(__name__)
 
 
 def get_chapter_info(chapter_id: str) -> Dict:
@@ -40,7 +43,7 @@ def get_chapter_info(chapter_id: str) -> Dict:
             chapter_info["series_id"] = series_id
             break
     else:
-        print("Could not get series from chapter!")
+        logger.error("Could not get series from chapter!")
         sys.exit(1)
 
     chapter_info["chapter"] = attributes.get("chapter", 0)
@@ -51,7 +54,7 @@ def get_chapter_info(chapter_id: str) -> Dict:
     chapter_title = attributes.get("title", fallback_title)
     chapter_info["title"] = chapter_title or fallback_title
 
-    print(f'Got info for "{chapter_info["chapter"]} {chapter_info["title"]}"')
+    logger.info('Got info for "%s %s"', chapter_info["chapter"], chapter_info["title"])
 
     return chapter_info
 
@@ -75,7 +78,7 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
     # Get the image path data
     chapter_image_data = response.get("chapter", {}).get("data")
     if chapter_image_data is None:
-        print("Could not find chapter URLs")
+        logger.warning("Could not find chapter URLs")
         return []
 
     # Create a url from the given data
@@ -133,7 +136,9 @@ def download_chapter_image(url: str, path: str):
     # Attempt download 5 times
     for attempt in range(5):
         if attempt > 0:
-            print("Retrying...")
+            logger.warning(
+                "Download for %s failed, retrying (attempt %i/5)", url, attempt
+            )
 
         response = mangadex_dl.get_mangadex_request(url)
 
@@ -145,6 +150,9 @@ def download_chapter_image(url: str, path: str):
             width, height = image.size
             new_height = 2400
             if height > new_height:
+                logger.info(
+                    "Image height from %s is greater than 2400 pixels, downscaling..."
+                )
                 ratio = width / height
                 new_width = floor(ratio * new_height)
                 image = image.resize((new_width, new_height), Image.BICUBIC)
@@ -154,7 +162,8 @@ def download_chapter_image(url: str, path: str):
         except OSError:
             continue
     else:
-        print("Failed to download image!")
+        logger.error("Failed to download image!")
+        sys.exit(1)
 
 
 def download_chapter(output_directory: str, chapter: Dict, series: Dict):
@@ -169,16 +178,18 @@ def download_chapter(output_directory: str, chapter: Dict, series: Dict):
     chapter_id = chapter.get("id")
     chapter_title = chapter.get("title")
     chapter_number = float(chapter.get("chapter", 0))
-    series_id = series.get("id")
+    series_name = series.get("title")
 
-    print(f'Downloading chapter "{chapter_number} {chapter_title}"')
+    logger.info(
+        'Downloading "%s" chapter "%s %s"', series_name, chapter_number, chapter_title
+    )
 
     image_urls = get_chapter_image_urls(chapter_id)
 
     # Download each page
     for i, url in enumerate(image_urls, start=1):
-        print(
-            f"Downloading page {i} of chapter {series_id}: {chapter_number} ({chapter_id})"
+        logger.info(
+            'Downloading page %i of chapter "%s %s"', i, chapter_number, chapter_title
         )
         file_path = os.path.join(output_directory, f"{i:03}.jpg")
 

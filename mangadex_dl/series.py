@@ -15,7 +15,6 @@ def get_series_info(series_id: str) -> Dict:
     Returns:
         (Dict): a dictionary containing all the relevent information of the series
     """
-    print(f"Downloading info for series ({series_id})")
 
     series_info = {"id": series_id}
 

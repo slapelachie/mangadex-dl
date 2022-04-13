@@ -2,9 +2,12 @@
 import os
 import argparse
 import sys
+import logging
 
 from mangadex_dl import __version__, __copyright__
 from mangadex_dl import MangaDexDL
+
+logger = logging.getLogger(__name__)
 
 
 def get_args() -> argparse.ArgumentParser:
@@ -19,6 +22,7 @@ def get_args() -> argparse.ArgumentParser:
     )
 
     arg.add_argument("-v", "--verbose", action="store_true", help="verbose logging")
+    arg.add_argument("--debug", action="store_true", help="debug logging")
     arg.add_argument(
         "-o",
         "--out-directory",
@@ -59,6 +63,13 @@ def parse_args(parser: argparse.ArgumentParser):
         parser.print_usage()
         print("The following arguments are required: url")
         sys.exit(1)
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+        logger.info("Set logger to debug level")
+    elif args.verbose:
+        logging.basicConfig(level=logging.INFO)
+        logger.info("Set logger to info level")
 
     mangadex = MangaDexDL(
         os.path.realpath(args.cache_file),

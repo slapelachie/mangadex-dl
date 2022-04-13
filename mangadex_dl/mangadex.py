@@ -3,10 +3,13 @@ import os
 import sys
 import shutil
 import json
+import logging
 
 import mangadex_dl
 from mangadex_dl import series as md_series
 from mangadex_dl import chapter as md_chapter
+
+logger = logging.getLogger(__name__)
 
 
 class MangaDexDL:
@@ -28,6 +31,8 @@ class MangaDexDL:
 
     def _handle_mangadex_url(self, url: str):
         mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
+        logger.debug("Supplied URL is of type %s", mangadex_type)
+        logger.debug("Resource ID is %s", resource_id)
 
         if mangadex_type == "title":
             self.handle_series_id(resource_id)
@@ -36,6 +41,7 @@ class MangaDexDL:
 
     def _ensure_cache_file_exists(self):
         if not os.path.exists(self._cache_file_path):
+            logger.info("%s does not exist, creating it...", self._cache_file_path)
             os.makedirs(os.path.dirname(self._cache_file_path), exist_ok=True)
             with open(self._cache_file_path, "w+", encoding="utf-8") as fout:
                 json.dump([], fout, indent=4)
@@ -48,6 +54,13 @@ class MangaDexDL:
             json.dump(file_data, raw_file, indent=4)
 
     def _process_chapter(self, chapter_info, series_info):
+        logger.info(
+            'Processing "%s" chapter "%s %s"',
+            series_info.get("title"),
+            chapter_info.get("chapter"),
+            chapter_info.get("title"),
+        )
+
         file_directory = os.path.join(
             self._output_directory,
             md_chapter.get_chapter_directory(
@@ -60,6 +73,10 @@ class MangaDexDL:
         md_chapter.download_chapter(file_directory, chapter_info, series_info)
         self._add_chapter_to_downloaded(chapter_info.get("id"))
 
+        logger.info(
+            "Creating %s.cbz",
+            file_directory,
+        )
         mangadex_dl.create_comicinfo(file_directory, chapter_info, series_info)
         mangadex_dl.create_cbz(file_directory)
 
@@ -75,7 +92,7 @@ class MangaDexDL:
         if mangadex_dl.is_mangadex_url(url):
             self._handle_mangadex_url(url)
         else:
-            print("Not a valid MangaDex URL")
+            logger.error("Not a valid MangaDex URL")
             sys.exit(1)
 
     def handle_series_id(self, series_id: str):
@@ -85,12 +102,20 @@ class MangaDexDL:
         Arguments:
             series_id (str): the UUID of the mangadex series
         """
+        logger.info("Handling series with ID: %s", series_id)
+
         series_info = md_series.get_series_info(series_id)
+        logger.info(
+            "Got series information for %s (%s)", series_info.get("title"), series_id
+        )
+
         excluded_chapters = (
             md_chapter.get_chapter_cache(self._cache_file_path)
             if not self._override
             else []
         )
+
+        logger.info("Getting chapters for %s (%s)", series_info.get("title"), series_id)
         series_chapters = md_series.get_series_chapters(
             series_id, excluded_chapters=excluded_chapters
         )
@@ -106,6 +131,8 @@ class MangaDexDL:
         Arguments:
             chapter_id (str): the UUID of the mangadex chapter
         """
+        logger.info("Handling chapter with ID: %s", chapter_id)
+
         excluded_chapters = (
             md_chapter.get_chapter_cache(self._cache_file_path)
             if not self._override
