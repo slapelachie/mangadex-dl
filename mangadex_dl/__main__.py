@@ -34,7 +34,7 @@ def parse_args(parser: argparse.ArgumentParser):
         sys.exit(1)
 
     mangadex = MangaDexDL(
-        os.path.realpath(args.cache_file), os.path.realpath(args.out_dirctory)
+        os.path.realpath(args.cache_file), os.path.realpath(args.out_directory)
     )
     mangadex.handle_url(args.url)
 

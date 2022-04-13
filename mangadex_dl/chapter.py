@@ -20,11 +20,11 @@ def get_chapter_info(chapter_id: str):
 
     for relationship in data.get("relationships"):
         if relationship.get("type") == "manga":
-            series_id = relationship.get("series_id", None)
+            series_id = relationship.get("id", None)
             if series_id is None:
                 continue
 
-            chapter_info["id"] = series_id
+            chapter_info["series_id"] = series_id
             break
     else:
         print("Could not get series from chapter!")
@@ -33,9 +33,12 @@ def get_chapter_info(chapter_id: str):
     chapter_info["chapter"] = data.get("attributes", {}).get("chapter", 0)
     chapter_info["volume"] = data.get("attributes", {}).get("volume", 0)
 
-    chapter_info["title"] = data.get("attributes", {}).get(
-        "title", f"Chapter {chapter_info['chapter']}"
-    )
+    fallback_title = f"Chapter {chapter_info['chapter']}"
+    chapter_title = data.get("attributes", {}).get("title", fallback_title)
+
+    chapter_info["title"] = chapter_title or fallback_title
+
+    print(f'Got info for "{chapter_info["chapter"]} {chapter_info["title"]}"')
 
     return chapter_info
 
@@ -62,6 +65,9 @@ def get_chapter_image_urls(chapter_id: str):
 
 
 def get_chapter_directory(series_title: str, chapter_number: float, chapter_title: str):
+    if not isinstance(chapter_number, float):
+        raise TypeError()
+
     chapter_title = re.sub(r"[^\w\-_\. ]", "_", chapter_title)
     series_title = re.sub(
         r"[^a-z0-9\-]",
@@ -69,10 +75,9 @@ def get_chapter_directory(series_title: str, chapter_number: float, chapter_titl
         re.sub(r"\s+", "-", re.sub(" +", " ", series_title.lower())),
     )
 
-    return (
-        f"{series_title}/{chapter_number:05.1f}".rstrip("0").rstrip(".")
-        + f" {chapter_title}"
-    )
+    return (f"{series_title}/{chapter_number:05.1f}").rstrip("0").rstrip(
+        "."
+    ) + f" {chapter_title}"
 
 
 def download_chapter_image(url: str, path: str):

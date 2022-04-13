@@ -4,7 +4,6 @@ import shutil
 import json
 
 import mangadex_dl
-from mangadex_dl import Series, Chapter
 from mangadex_dl import series as md_series
 from mangadex_dl import chapter as md_chapter
 
@@ -31,11 +30,11 @@ class MangaDexDL:
                 json.dump([], fout, indent=4)
 
     def _add_chapter_to_downloaded(self, chapter_id: str):
-        with open(self._cache_file_path, "r+") as f:
-            file_data = json.load(f)
+        with open(self._cache_file_path, "r+", encoding="utf-8") as raw_file:
+            file_data = json.load(raw_file)
             file_data.append(chapter_id)
-            f.seek(0)
-            json.dump(file_data, f, indent=4)
+            raw_file.seek(0)
+            json.dump(file_data, raw_file, indent=4)
 
     def handle_url(self, url: str):
         if mangadex_dl.is_mangadex_url(url):
@@ -54,7 +53,7 @@ class MangaDexDL:
                 self._output_directory,
                 md_chapter.get_chapter_directory(
                     series_info.get("title"),
-                    chapter.get("chapter"),
+                    float(chapter.get("chapter")),
                     chapter.get("title"),
                 ),
             )
@@ -62,14 +61,12 @@ class MangaDexDL:
             md_chapter.download_chapter(file_directory, chapter, series_info)
             self._add_chapter_to_downloaded(chapter.get("id"))
 
-            mangadex_dl.create_cbz(file_directory)
             mangadex_dl.create_comicinfo(file_directory, chapter, series_info)
+            mangadex_dl.create_cbz(file_directory)
 
             shutil.rmtree(file_directory)
 
     def handle_chapter_id(self, chapter_id: str):
-        chapter = Chapter(chapter_id)
-        chapter.download(self._output_directory)
-
-    def get_series_from_id(self, series_id: str):
-        return Series(series_id, self._cache_file_path)
+        pass
+        # chapter = Chapter(chapter_id)
+        # chapter.download(self._output_directory)

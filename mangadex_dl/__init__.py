@@ -8,6 +8,4 @@ from mangadex_dl.utils import (
     create_comicinfo,
 )
 
-from mangadex_dl.series import Series
-from mangadex_dl.chapter import Chapter
 from mangadex_dl.mangadex import MangaDexDL
