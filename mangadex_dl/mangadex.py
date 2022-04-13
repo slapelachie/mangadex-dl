@@ -36,6 +36,24 @@ class MangaDexDL:
             raw_file.seek(0)
             json.dump(file_data, raw_file, indent=4)
 
+    def _process_chapter(self, chapter_info, series_info):
+        file_directory = os.path.join(
+            self._output_directory,
+            md_chapter.get_chapter_directory(
+                series_info.get("title"),
+                float(chapter_info.get("chapter")),
+                chapter_info.get("title"),
+            ),
+        )
+
+        md_chapter.download_chapter(file_directory, chapter_info, series_info)
+        self._add_chapter_to_downloaded(chapter_info.get("id"))
+
+        mangadex_dl.create_comicinfo(file_directory, chapter_info, series_info)
+        mangadex_dl.create_cbz(file_directory)
+
+        shutil.rmtree(file_directory)
+
     def handle_url(self, url: str):
         if mangadex_dl.is_mangadex_url(url):
             self._handle_mangadex_url(url)
@@ -46,27 +64,15 @@ class MangaDexDL:
     def handle_series_id(self, series_id: str):
         series_info = md_series.get_series_info(series_id)
         chapter_cache = md_series.get_chapter_cache(self._cache_file_path)
-        series_chapters = md_series.get_chapters(series_id, chapter_cache)
+        series_chapters = md_series.get_chapters(
+            series_id, excluded_chapters=chapter_cache
+        )
 
         for chapter in series_chapters:
-            file_directory = os.path.join(
-                self._output_directory,
-                md_chapter.get_chapter_directory(
-                    series_info.get("title"),
-                    float(chapter.get("chapter")),
-                    chapter.get("title"),
-                ),
-            )
-
-            md_chapter.download_chapter(file_directory, chapter, series_info)
-            self._add_chapter_to_downloaded(chapter.get("id"))
-
-            mangadex_dl.create_comicinfo(file_directory, chapter, series_info)
-            mangadex_dl.create_cbz(file_directory)
-
-            shutil.rmtree(file_directory)
+            self._process_chapter(chapter, series_info)
 
     def handle_chapter_id(self, chapter_id: str):
-        pass
-        # chapter = Chapter(chapter_id)
-        # chapter.download(self._output_directory)
+        chapter_info = md_chapter.get_chapter_info(chapter_id)
+        series_info = md_series.get_series_info(chapter_info.get("series_id"))
+
+        self._process_chapter(chapter_info, series_info)
