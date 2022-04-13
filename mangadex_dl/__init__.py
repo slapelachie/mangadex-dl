@@ -1,3 +1,4 @@
+"""Stop the warning"""
 from mangadex_dl.utils import (
     is_url,
     is_mangadex_url,

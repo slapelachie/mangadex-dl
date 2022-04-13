@@ -4,8 +4,9 @@ Random utilities for mangadex_dl
 import re
 import shutil
 import os
+import sys
 from time import sleep, time
-from typing import Dict
+from typing import Dict, Tuple
 
 import requests
 from dict2xml import dict2xml
@@ -49,21 +50,51 @@ def is_mangadex_url(url: str) -> bool:
     )
 
 
-def get_mangadex_resource(url: str):
-    search = re.search(
-        r"^((http[s]?|ftp):\/)?\/?([^:\/\s]+)((\/\w+)*\/)([\w\-\.]+[^#?\s]+)(.*)?(#[\w\-]+)?$",
-        url,
-    )
-    mangadex_type = search.group(4).replace("/", "")
+def get_mangadex_resource(url: str) -> Tuple[str, str]:
+    """
+    Gets the resource and its type from a mangadex url
 
-    resource = re.search(
-        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", url
-    ).group(0)
+    Arguments:
+        url (str): the url to get the needed information from
 
-    return [mangadex_type, resource]
+    Returns:
+        (Tuple[str, str]): a tuple containing the type of resource and the UUID of the resource
+    """
+    mangadex_type = ""
+    resource = ""
+
+    try:
+        # Get the type from the url
+        search = re.search(
+            r"^((http[s]?|ftp):\/)?\/?([^:\/\s]+)((\/\w+)*\/)([\w\-\.]+[^#?\s]+)(.*)?(#[\w\-]+)?$",
+            url,
+        )
+        mangadex_type = search.group(4).replace("/", "")
+
+        # Get the UUID from the url
+        resource = re.search(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", url
+        ).group(0)
+    except AttributeError:
+        print("Could not get resource type or resource UUID!")
+        sys.exit(1)
+
+    return (mangadex_type, resource)
 
 
-def get_mangadex_request(url: str):
+def get_mangadex_request(url: str) -> requests.Response:
+    """
+    Perform a request to the mangadex server with the appropiate rules in place (rate limiting etc)
+
+    Arguments:
+        url (str): the url to perform the request on
+
+    Returns:
+        (requests.Response): the response from the server
+
+    Raises:
+        (requests.HTTPError): if the url does not return a valid response
+    """
     response = requests.get(url)
 
     while response.status_code == 429:
@@ -78,18 +109,35 @@ def get_mangadex_request(url: str):
         response = requests.get(url)
 
     if response.status_code != 200:
-        raise ValueError("Response was not successfull!")
+        response.raise_for_status()
 
-    sleep(1)
+    sleep(0.5)
     return response
 
 
-def get_mangadex_response(url: str):
+def get_mangadex_response(url: str) -> Dict:
+    """
+    Gets the response from get_mangadex_request but in the json format
+    I wrote a lot of code relying on this before I moved it to the afformentioned function, and
+    didn't want to update all the references
+
+    Arguments:
+        url (str): the url to perform the request to
+
+    Returns:
+        (Dict?): the response in json format
+    """
     response = get_mangadex_request(url)
     return response.json()
 
 
 def create_cbz(chapter_directory: str):
+    """
+    Creates a CBZ archive (just a zip archive) for the given folder
+
+    Arguments:
+        chapter_directory (str): the directory to turn into a CBZ
+    """
     shutil.make_archive(chapter_directory, "zip", chapter_directory)
     shutil.move(
         f"{chapter_directory}.zip",
@@ -97,7 +145,16 @@ def create_cbz(chapter_directory: str):
     )
 
 
-def create_comicinfo(out_directory: str, chapter: Dict, series: Dict):
+def create_comicinfo(output_directory: str, chapter: Dict, series: Dict):
+    """
+    Creates a ComicInfo file for the chapter, only tested with Komago, so I have no idea if this
+    works elsewhere
+
+    Arguments:
+        output_directory (str): the directory to save the file
+        chapter (Dict): the chapter information (see mangadex_dl.chapter.get_chapter_info)
+        series (Dict): the series information (see mangadex_dl.series.get_series_info)
+    """
     data = {
         "ComicInfo": {
             "Title": chapter.get("title"),
@@ -110,7 +167,12 @@ def create_comicinfo(out_directory: str, chapter: Dict, series: Dict):
         }
     }
     xml = dict2xml(data)
-    with open(
-        os.path.join(out_directory, "ComicInfo.xml"), "w+", encoding="utf-8"
-    ) as fout:
-        fout.write(xml)
+
+    try:
+        with open(
+            os.path.join(output_directory, "ComicInfo.xml"), "w+", encoding="utf-8"
+        ) as fout:
+            fout.write(xml)
+    except OSError as error:
+        print(error)
+        sys.exit(1)

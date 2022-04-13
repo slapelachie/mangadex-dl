@@ -1,3 +1,4 @@
+"""The main handler for mangadex-dl"""
 import os
 import sys
 import shutil
@@ -9,7 +10,14 @@ from mangadex_dl import chapter as md_chapter
 
 
 class MangaDexDL:
+    """Handles all MangaDexDL related stuff"""
+
     def __init__(self, cache_file_path: str, out_directory: str):
+        """
+        Arguments:
+            cache_file_path (str): the path for the file containing downloaded hashes is stored
+            out_directory (str): where to store the downloaded content
+        """
         self._cache_file_path = cache_file_path
         self._output_directory = out_directory
 
@@ -55,6 +63,12 @@ class MangaDexDL:
         shutil.rmtree(file_directory)
 
     def handle_url(self, url: str):
+        """
+        Handle the given url
+
+        Arguments:
+            url (str): the url to handle
+        """
         if mangadex_dl.is_mangadex_url(url):
             self._handle_mangadex_url(url)
         else:
@@ -62,16 +76,29 @@ class MangaDexDL:
             sys.exit(1)
 
     def handle_series_id(self, series_id: str):
+        """
+        Handles a given series ID and starts the download process of the entire series
+
+        Arguments:
+            series_id (str): the UUID of the mangadex series
+        """
         series_info = md_series.get_series_info(series_id)
-        chapter_cache = md_series.get_chapter_cache(self._cache_file_path)
-        series_chapters = md_series.get_chapters(
+        chapter_cache = md_chapter.get_chapter_cache(self._cache_file_path)
+        series_chapters = md_series.get_series_chapters(
             series_id, excluded_chapters=chapter_cache
         )
 
+        # Process all chapters
         for chapter in series_chapters:
             self._process_chapter(chapter, series_info)
 
     def handle_chapter_id(self, chapter_id: str):
+        """
+        Handles a given chapter id and prepares to start downloading the chapter
+
+        Arguments:
+            chapter_id (str): the UUID of the mangadex chapter
+        """
         chapter_info = md_chapter.get_chapter_info(chapter_id)
         series_info = md_series.get_series_info(chapter_info.get("series_id"))
 

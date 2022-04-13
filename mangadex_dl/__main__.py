@@ -1,3 +1,4 @@
+"""The main module"""
 import os
 import argparse
 import sys
@@ -5,7 +6,13 @@ import sys
 from mangadex_dl import MangaDexDL
 
 
-def get_args():
+def get_args() -> argparse.ArgumentParser:
+    """
+    Gets the arguments through argparse
+
+    Returns:
+        (argparse.ArgumentParser): the arguments
+    """
     arg = argparse.ArgumentParser(
         description="Download mangadex manga from the command line"
     )
@@ -27,6 +34,12 @@ def get_args():
 
 
 def parse_args(parser: argparse.ArgumentParser):
+    """
+    parse the arguments through the given parser
+
+    Arguments:
+        parser (argparse.ArgumentParser): the argument parser
+    """
     args = parser.parse_args()
 
     if len(sys.argv) <= 1:
