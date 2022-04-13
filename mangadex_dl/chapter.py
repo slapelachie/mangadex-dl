@@ -97,6 +97,8 @@ def get_chapter_directory(
 ) -> str:
     """
     Get the format of the path for the chapter images
+    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
+    from the series title and chapter title
 
     Arguments:
         series_title (str): the title of the series
@@ -177,8 +179,21 @@ def download_chapter(output_directory: str, chapter: Dict, series: Dict):
     """
     chapter_id = chapter.get("id")
     chapter_title = chapter.get("title")
-    chapter_number = float(chapter.get("chapter", 0))
+    chapter_number = chapter.get("chapter")
     series_name = series.get("title")
+
+    if (
+        chapter_id is None
+        or chapter_title is None
+        or chapter_number is None
+        or series_name is None
+    ):
+        logger.error(
+            "Could not find all the necessary information to download the chapter"
+        )
+        sys.exit(1)
+
+    chapter_number = float(chapter_number)
 
     logger.info(
         'Downloading "%s" chapter "%s %s"', series_name, chapter_number, chapter_title

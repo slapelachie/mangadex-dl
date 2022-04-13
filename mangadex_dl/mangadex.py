@@ -43,35 +43,65 @@ class MangaDexDL:
         if not os.path.exists(self._cache_file_path):
             logger.info("%s does not exist, creating it...", self._cache_file_path)
             os.makedirs(os.path.dirname(self._cache_file_path), exist_ok=True)
-            with open(self._cache_file_path, "w+", encoding="utf-8") as fout:
-                json.dump([], fout, indent=4)
+            try:
+                with open(self._cache_file_path, "w+", encoding="utf-8") as fout:
+                    json.dump([], fout, indent=4)
+            except OSError:
+                logger.error(
+                    "Could not create required cache file at %s", self._cache_file_path
+                )
+                sys.exit(1)
 
     def _add_chapter_to_downloaded(self, chapter_id: str):
-        with open(self._cache_file_path, "r+", encoding="utf-8") as raw_file:
-            file_data = json.load(raw_file)
-            file_data.append(chapter_id)
-            raw_file.seek(0)
-            json.dump(file_data, raw_file, indent=4)
+        for i in range(2):
+            try:
+                with open(self._cache_file_path, "r+", encoding="utf-8") as raw_file:
+                    file_data = json.load(raw_file)
+                    file_data.append(chapter_id)
+                    raw_file.seek(0)
+                    json.dump(file_data, raw_file, indent=4)
+            except FileNotFoundError:
+                if i > 0:
+                    logger.error(
+                        "Could not find required cache file at %s",
+                        self._cache_file_path,
+                    )
+
+                self._ensure_cache_file_exists()
 
     def _process_chapter(self, chapter_info, series_info):
+        series_title = series_info.get("title")
+        chapter_number = chapter_info.get("chapter")
+        chapter_title = chapter_info.get("title")
+        chapter_id = chapter_info.get("id")
+
+        if (
+            series_title is None
+            or chapter_number is None
+            or chapter_title is None
+            or chapter_id is None
+        ):
+            logger.error(
+                "Could not find all the necessary information to process the chapter"
+            )
+            sys.exit(1)
+
         logger.info(
             'Processing "%s" chapter "%s %s"',
-            series_info.get("title"),
-            chapter_info.get("chapter"),
-            chapter_info.get("title"),
+            series_title,
+            chapter_number,
+            chapter_title,
         )
 
         file_directory = os.path.join(
             self._output_directory,
             md_chapter.get_chapter_directory(
-                series_info.get("title"),
-                float(chapter_info.get("chapter")),
-                chapter_info.get("title"),
+                series_title, float(chapter_number), chapter_title
             ),
         )
 
         md_chapter.download_chapter(file_directory, chapter_info, series_info)
-        self._add_chapter_to_downloaded(chapter_info.get("id"))
+        self._add_chapter_to_downloaded(chapter_id)
 
         logger.info(
             "Creating %s.cbz",
