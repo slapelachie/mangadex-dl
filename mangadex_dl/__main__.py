@@ -3,6 +3,7 @@ import os
 import argparse
 import sys
 
+from mangadex_dl import __version__, __copyright__
 from mangadex_dl import MangaDexDL
 
 
@@ -31,7 +32,8 @@ def get_args() -> argparse.ArgumentParser:
     arg.add_argument(
         "--override", action="store_true", help="Ignores any UUIDs in the cache file"
     )
-    arg.add_argument("url", help="url to download")
+    arg.add_argument("--version", action="store_true", help="Print version information")
+    arg.add_argument("url", help="url to download", nargs="?")
 
     return arg
 
@@ -47,6 +49,15 @@ def parse_args(parser: argparse.ArgumentParser):
 
     if len(sys.argv) <= 1:
         parser.print_help()
+        sys.exit(1)
+
+    if args.version:
+        print(f"mangadex-dl {__version__}\n{__copyright__}")
+        sys.exit(0)
+
+    if not args.url:
+        parser.print_usage()
+        print("The following arguments are required: url")
         sys.exit(1)
 
     mangadex = MangaDexDL(
