@@ -27,6 +27,7 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
 
     Raises:
         ValueError: if the response does not contain the required data
+        requests.HTTPError: if the response fails
     """
 
     series_info = {"id": series_id}

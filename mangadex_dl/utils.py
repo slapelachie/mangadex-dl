@@ -34,6 +34,10 @@ class SeriesInfo(TypedDict):
     author: str
 
 
+class BadChapterData(Exception):
+    """Raised when data retreieved for data is bad"""
+
+
 def is_url(url: str) -> bool:
     """
     Determine if a string is a URL

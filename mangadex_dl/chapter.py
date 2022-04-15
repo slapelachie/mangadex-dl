@@ -85,19 +85,24 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
         chapter_id (str): the UUID for the mangadex chapter
 
     Returns:
-        (List[str]): a list of the chapter image urls
+        (List[str]): a list of the chapter image urls, empty if could not get images
+
+    Raises:
+        HTTPError: if the requested chapter id could not be found
     """
     chapter_urls = []
 
-    response = mangadex_dl.get_mangadex_response(
-        f"https://api.mangadex.org/at-home/server/{chapter_id}"
-    )
+    try:
+        response = mangadex_dl.get_mangadex_response(
+            f"https://api.mangadex.org/at-home/server/{chapter_id}"
+        )
+    except HTTPError as err:
+        raise HTTPError from err
 
     # Get the image path data
     chapter_image_data = response.get("chapter", {}).get("data")
     if chapter_image_data is None:
-        logger.warning("Could not find chapter URLs")
-        return []
+        raise mangadex_dl.BadChapterData("Could not find chapter URLs")
 
     # Create a url from the given data
     for chapter_image in chapter_image_data:
@@ -105,8 +110,9 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
         chapter_hash = response.get("chapter", {}).get("hash")
 
         if base_url is None or chapter_hash is None:
-            logger.warning("Chapter %s URL could not be retrieved", chapter_id)
-            continue
+            raise mangadex_dl.BadChapterData(
+                f"Chapter {chapter_id} URL could not be retrieved"
+            )
 
         chapter_urls.append(f"{base_url}/data/{chapter_hash}/{chapter_image}")
 
@@ -127,7 +133,9 @@ def get_chapter_directory(
         chapter_title (str): the title of the chapter
 
     Returns:
-        (str): the folder structure for the outputed files
+        (str): the folder structure for the outputed files. For example:
+            series_title -> "foo", chapter_number -> 2.0, chapter_title -> "bar"
+            returns: "foo/002 bar"
 
     Raises:
         TypeError: if the  given chapter number is not a number

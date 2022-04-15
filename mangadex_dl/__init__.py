@@ -9,6 +9,7 @@ from mangadex_dl.utils import (
     create_comicinfo,
     ChapterInfo,
     SeriesInfo,
+    BadChapterData,
 )
 
 from mangadex_dl.mangadex import MangaDexDL
