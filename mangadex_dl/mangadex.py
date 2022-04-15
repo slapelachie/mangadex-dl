@@ -5,11 +5,21 @@ import shutil
 import json
 import logging
 
+from requests import HTTPError
+
 import mangadex_dl
 from mangadex_dl import series as md_series
 from mangadex_dl import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
+
+
+class FailedImageError(Exception):
+    """Raised when image fails to download or be processed"""
+
+
+class ComicInfoError(Exception):
+    """Raised when ComicInfo.xml fails to be created"""
 
 
 class MangaDexDL:
@@ -27,10 +37,18 @@ class MangaDexDL:
         self._output_directory = out_directory
         self._override = override
 
-        self._ensure_cache_file_exists()
+        try:
+            self._ensure_cache_file_exists()
+        except OSError as err:
+            logger.exception(err)
+            sys.exit(1)
 
     def _handle_mangadex_url(self, url: str):
-        mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
+        try:
+            mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
+        except ValueError as err:
+            raise ValueError from err
+
         logger.debug("Supplied URL is of type %s", mangadex_type)
         logger.debug("Resource ID is %s", resource_id)
 
@@ -46,11 +64,10 @@ class MangaDexDL:
             try:
                 with open(self._cache_file_path, "w+", encoding="utf-8") as fout:
                     json.dump([], fout, indent=4)
-            except OSError:
-                logger.error(
-                    "Could not create required cache file at %s", self._cache_file_path
-                )
-                sys.exit(1)
+            except OSError as err:
+                raise OSError(
+                    f"Could not create required cache file at {self._cache_file_path}"
+                ) from err
 
     def _add_chapter_to_downloaded(self, chapter_id: str):
         for i in range(2):
@@ -60,31 +77,28 @@ class MangaDexDL:
                     file_data.append(chapter_id)
                     raw_file.seek(0)
                     json.dump(file_data, raw_file, indent=4)
-            except FileNotFoundError:
-                if i > 0:
-                    logger.error(
-                        "Could not find required cache file at %s",
-                        self._cache_file_path,
-                    )
+            except FileNotFoundError as err:
+                if i != 0:
+                    raise FileNotFoundError(
+                        f"Could not find required cache file at {self._cache_file_path}"
+                    ) from err
 
-                self._ensure_cache_file_exists()
+                try:
+                    self._ensure_cache_file_exists()
+                except OSError as err:
+                    raise OSError from err
 
     def _process_chapter(self, chapter_info, series_info):
+        if "title" not in series_info or not all(
+            key in chapter_info for key in ["chapter", "title", "id"]
+        ):
+            raise KeyError(
+                "Needed information from chapter or series not present! Exiting..."
+            )
+
         series_title = series_info.get("title")
         chapter_number = chapter_info.get("chapter")
         chapter_title = chapter_info.get("title")
-        chapter_id = chapter_info.get("id")
-
-        if (
-            series_title is None
-            or chapter_number is None
-            or chapter_title is None
-            or chapter_id is None
-        ):
-            logger.error(
-                "Could not find all the necessary information to process the chapter"
-            )
-            sys.exit(1)
 
         logger.info(
             'Processing "%s" chapter "%s %s"',
@@ -100,15 +114,32 @@ class MangaDexDL:
             ),
         )
 
-        md_chapter.download_chapter(file_directory, chapter_info, series_info)
-        self._add_chapter_to_downloaded(chapter_id)
+        try:
+            md_chapter.download_chapter(file_directory, chapter_info, series_info)
+        except (KeyError, OSError) as err:
+            raise FailedImageError("Failed to download image!") from err
+
+        try:
+            self._add_chapter_to_downloaded(chapter_info.get("id"))
+        except OSError as err:
+            raise OSError from err
 
         logger.info(
             "Creating %s.cbz",
             file_directory,
         )
-        mangadex_dl.create_comicinfo(file_directory, chapter_info, series_info)
-        mangadex_dl.create_cbz(file_directory)
+
+        try:
+            mangadex_dl.create_comicinfo(file_directory, chapter_info, series_info)
+        except (KeyError, OSError) as err:
+            shutil.rmtree(file_directory)
+            raise ComicInfoError("Failed to create ComicInfo.xml!") from err
+
+        try:
+            mangadex_dl.create_cbz(file_directory)
+        except (NotADirectoryError, OSError) as err:
+            shutil.rmtree(file_directory)
+            raise OSError("Failed to create archive!") from err
 
         shutil.rmtree(file_directory)
 
@@ -122,7 +153,7 @@ class MangaDexDL:
         if mangadex_dl.is_mangadex_url(url):
             self._handle_mangadex_url(url)
         else:
-            logger.error("Not a valid MangaDex URL")
+            logger.critical("Not a valid MangaDex URL")
             sys.exit(1)
 
     def handle_series_id(self, series_id: str):
@@ -134,7 +165,12 @@ class MangaDexDL:
         """
         logger.info("Handling series with ID: %s", series_id)
 
-        series_info = md_series.get_series_info(series_id)
+        try:
+            series_info = md_series.get_series_info(series_id)
+        except ValueError as err:
+            logger.exception(err)
+            sys.exit(1)
+
         logger.info(
             "Got series information for %s (%s)", series_info.get("title"), series_id
         )
@@ -152,7 +188,11 @@ class MangaDexDL:
 
         # Process all chapters
         for chapter in series_chapters:
-            self._process_chapter(chapter, series_info)
+            try:
+                self._process_chapter(chapter, series_info)
+            except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
+                logger.exception(err)
+                sys.exit(1)
 
     def handle_chapter_id(self, chapter_id: str):
         """
@@ -169,7 +209,15 @@ class MangaDexDL:
             else []
         )
         if chapter_id not in excluded_chapters:
-            chapter_info = md_chapter.get_chapter_info(chapter_id)
-            series_info = md_series.get_series_info(chapter_info.get("series_id"))
+            try:
+                chapter_info = md_chapter.get_chapter_info(chapter_id)
+                series_info = md_series.get_series_info(chapter_info.get("series_id"))
+            except (HTTPError, ValueError, KeyError) as err:
+                logger.exception(err)
+                sys.exit(1)
 
-            self._process_chapter(chapter_info, series_info)
+            try:
+                self._process_chapter(chapter_info, series_info)
+            except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
+                logger.exception(err)
+                sys.exit(1)

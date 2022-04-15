@@ -4,12 +4,14 @@ Random utilities for mangadex_dl
 import re
 import shutil
 import os
-import sys
+import logging
 from time import sleep, time
 from typing import Dict, Tuple
 
 import requests
 from dict2xml import dict2xml
+
+logger = logging.getLogger(__name__)
 
 
 def is_url(url: str) -> bool:
@@ -75,9 +77,8 @@ def get_mangadex_resource(url: str) -> Tuple[str, str]:
         resource = re.search(
             r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", url
         ).group(0)
-    except AttributeError:
-        print("Could not get resource type or resource UUID!")
-        sys.exit(1)
+    except AttributeError as err:
+        raise ValueError("Could not get resource type or resource UUID!") from err
 
     return (mangadex_type, resource)
 
@@ -103,7 +104,7 @@ def get_mangadex_request(url: str) -> requests.Response:
             - time()
         )
 
-        print(f"Exceeded rate-limit, waiting {wait_time} seconds")
+        logger.warning("Exceeded rate-limit, waiting %i seconds", wait_time)
         sleep(wait_time)
 
         response = requests.get(url)
@@ -138,11 +139,23 @@ def create_cbz(chapter_directory: str):
     Arguments:
         chapter_directory (str): the directory to turn into a CBZ
     """
-    shutil.make_archive(chapter_directory, "zip", chapter_directory)
-    shutil.move(
-        f"{chapter_directory}.zip",
-        f"{chapter_directory}.cbz",
-    )
+    if not os.path.isdir(chapter_directory):
+        raise NotADirectoryError("The supplied path is not a directory!")
+
+    try:
+        shutil.make_archive(chapter_directory, "zip", chapter_directory)
+    except shutil.Error as err:
+        raise OSError(f"Failed to make archive for {chapter_directory}.zip") from err
+
+    try:
+        shutil.move(
+            f"{chapter_directory}.zip",
+            f"{chapter_directory}.cbz",
+        )
+    except shutil.Error as err:
+        raise OSError(
+            f"Failed to rename archive from {chapter_directory}.zip to {chapter_directory}.cbz"
+        ) from err
 
 
 def create_comicinfo(output_directory: str, chapter: Dict, series: Dict):
@@ -155,6 +168,13 @@ def create_comicinfo(output_directory: str, chapter: Dict, series: Dict):
         chapter (Dict): the chapter information (see mangadex_dl.chapter.get_chapter_info)
         series (Dict): the series information (see mangadex_dl.series.get_series_info)
     """
+    if not all(key in chapter for key in ["title", "chapter"]) or not all(
+        key in series for key in ["title", "description", "year", "author"]
+    ):
+        raise KeyError(
+            "One of the needed fields in the parsed dictionaries is not valid!"
+        )
+
     data = {
         "ComicInfo": {
             "Title": chapter.get("title"),
@@ -173,6 +193,7 @@ def create_comicinfo(output_directory: str, chapter: Dict, series: Dict):
             os.path.join(output_directory, "ComicInfo.xml"), "w+", encoding="utf-8"
         ) as fout:
             fout.write(xml)
-    except OSError as error:
-        print(error)
-        sys.exit(1)
+    except OSError as err:
+        raise OSError(
+            f'Could not open "{os.path.join(output_directory, "ComicInfo")}" for writing'
+        ) from err

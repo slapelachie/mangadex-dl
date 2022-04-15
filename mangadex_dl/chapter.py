@@ -2,12 +2,12 @@
 import re
 import os
 import io
-import sys
 import json
 import logging
 from math import floor
 from typing import Dict, List
 
+from requests import HTTPError
 from PIL import Image
 
 import mangadex_dl
@@ -27,11 +27,18 @@ def get_chapter_info(chapter_id: str) -> Dict:
     """
     chapter_info = {"id": chapter_id}
 
-    response = mangadex_dl.get_mangadex_response(
-        f"https://api.mangadex.org/chapter/{chapter_id}"
-    )
+    try:
+        response = mangadex_dl.get_mangadex_response(
+            f"https://api.mangadex.org/chapter/{chapter_id}"
+        )
+    except HTTPError as err:
+        raise HTTPError from err
+
     data = response.get("data", {})
-    attributes = data.get("attributes", {})
+    attributes = data.get("attributes")
+
+    if attributes is None:
+        raise ValueError("Could not get needed information!")
 
     # Get the series ID
     for relationship in data.get("relationships"):
@@ -43,8 +50,7 @@ def get_chapter_info(chapter_id: str) -> Dict:
             chapter_info["series_id"] = series_id
             break
     else:
-        logger.error("Could not get series from chapter!")
-        sys.exit(1)
+        raise KeyError("Could not get series_id from chapter!")
 
     chapter_info["chapter"] = attributes.get("chapter", 0)
     chapter_info["volume"] = attributes.get("volume", 0)
@@ -86,8 +92,11 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
         base_url = response.get("baseUrl")
         chapter_hash = response.get("chapter", {}).get("hash")
 
-        if base_url is not None and chapter_hash is not None:
-            chapter_urls.append(f"{base_url}/data/{chapter_hash}/{chapter_image}")
+        if base_url is None or chapter_hash is None:
+            logger.warning("Chapter %s URL could not be retrieved", chapter_id)
+            continue
+
+        chapter_urls.append(f"{base_url}/data/{chapter_hash}/{chapter_image}")
 
     return chapter_urls
 
@@ -126,8 +135,8 @@ def download_chapter_image(url: str, path: str):
     Image is converted to RGB, downscaled to a height of 2400 pixels if it exceeds this height,
     and then saved as a to the given path
 
-    The download is attempted 5 times before aborting, this is because there was a time where
-    pillow complained about the image being truncated, and on the next attempt it was fine
+    The download and saving is attempted 5 times before aborting, this is because there was a time
+    where pillow complained about the image being truncated, and on the next attempt it was fine
 
     Arguments:
         url (str): the url of the mangadex chapter image (page)
@@ -142,7 +151,10 @@ def download_chapter_image(url: str, path: str):
                 "Download for %s failed, retrying (attempt %i/5)", url, attempt
             )
 
-        response = mangadex_dl.get_mangadex_request(url)
+        try:
+            response = mangadex_dl.get_mangadex_request(url)
+        except HTTPError:
+            continue
 
         try:
             image = Image.open(io.BytesIO(response.content))
@@ -164,8 +176,7 @@ def download_chapter_image(url: str, path: str):
         except OSError:
             continue
     else:
-        logger.error("Failed to download image!")
-        sys.exit(1)
+        raise OSError("Failed to download and save image!")
 
 
 def download_chapter(output_directory: str, chapter: Dict, series: Dict):
@@ -177,29 +188,24 @@ def download_chapter(output_directory: str, chapter: Dict, series: Dict):
         chapter (Dict): the chapter information (see mangadex_dl.chapter.get_chapter_info)
         series (Dict): the series information (see mangadex_dl.series.get_series_info)
     """
-    chapter_id = chapter.get("id")
     chapter_title = chapter.get("title")
-    chapter_number = chapter.get("chapter")
-    series_name = series.get("title")
 
-    if (
-        chapter_id is None
-        or chapter_title is None
-        or chapter_number is None
-        or series_name is None
-    ):
-        logger.error(
-            "Could not find all the necessary information to download the chapter"
+    if not all(key in chapter for key in ["id", "title", "chapter"]):
+        raise KeyError(
+            "One of the needed fields in the parsed dictionaries is not valid!"
+            "Could not download the chapter."
         )
-        sys.exit(1)
 
-    chapter_number = float(chapter_number)
+    chapter_number = float(chapter.get("chapter"))
 
     logger.info(
-        'Downloading "%s" chapter "%s %s"', series_name, chapter_number, chapter_title
+        'Downloading "%s" chapter "%s %s"',
+        series.get("title", "N/A"),
+        chapter_number,
+        chapter_title,
     )
 
-    image_urls = get_chapter_image_urls(chapter_id)
+    image_urls = get_chapter_image_urls(chapter.get("id"))
 
     # Download each page
     for i, url in enumerate(image_urls, start=1):
@@ -208,7 +214,10 @@ def download_chapter(output_directory: str, chapter: Dict, series: Dict):
         )
         file_path = os.path.join(output_directory, f"{i:03}.jpg")
 
-        download_chapter_image(url, file_path)
+        try:
+            download_chapter_image(url, file_path)
+        except OSError as err:
+            raise OSError from err
 
 
 def get_chapter_cache(cache_file_path: str):

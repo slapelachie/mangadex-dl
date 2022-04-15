@@ -1,8 +1,13 @@
 """Functions related to MangaDex series"""
+import logging
 from typing import List, Dict, Tuple
+
+from requests import HTTPError
 
 import mangadex_dl
 from mangadex_dl import chapter as md_chapter
+
+logger = logging.getLogger(__name__)
 
 
 def get_series_info(series_id: str) -> Dict:
@@ -18,12 +23,18 @@ def get_series_info(series_id: str) -> Dict:
 
     series_info = {"id": series_id}
 
-    response = mangadex_dl.get_mangadex_response(
-        f"https://api.mangadex.org/manga/{series_id}?includes[]=author"
-    )
+    try:
+        response = mangadex_dl.get_mangadex_response(
+            f"https://api.mangadex.org/manga/{series_id}?includes[]=author"
+        )
+    except HTTPError as err:
+        raise HTTPError from err
 
-    data = response.get("data").get("attributes")
+    data = response.get("data").get("attributes", {})
     relationships = response.get("data").get("relationships")
+
+    if relationships is None:
+        raise ValueError("Could not get needed information!")
 
     series_info["title"] = data.get("title", {}).get("en", "No Title")
     series_info["description"] = data.get("description", {}).get("en", "")
@@ -56,7 +67,7 @@ def get_series_chapters(
     Returns:
         (List[Dict]): returns the list of chapters and their relevent information
     """
-    chapters = []
+    chapter_list = []
 
     response = mangadex_dl.get_mangadex_response(
         f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
@@ -70,12 +81,27 @@ def get_series_chapters(
             volume.get("chapters")
             if not isinstance(volume.get("chapters"), list)
             else {"0": volume.get("chapters")[0]}
-        ).values()
+        )
+
+        if chapters_raw is None:
+            logger.warning(
+                "Chapters not found for volume %s", volume.get("volume", "N/A")
+            )
+            continue
+
+        chapters = chapters_raw.values()
 
         # Add chapters to list
-        for chapter in chapters_raw:
+        for chapter in chapters:
             chapter_id = chapter.get("id")
-            if chapter_id not in excluded_chapters:
-                chapters.append(md_chapter.get_chapter_info(chapter_id))
+            if chapter_id is None:
+                logger.warning(
+                    "Chapter id could not be retrieved for volume %s",
+                    volume.get("volume", "N/A"),
+                )
+                continue
 
-    return chapters
+            if chapter_id not in excluded_chapters:
+                chapter_list.append(md_chapter.get_chapter_info(chapter_id))
+
+    return chapter_list
