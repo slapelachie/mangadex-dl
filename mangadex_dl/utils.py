@@ -64,7 +64,7 @@ def is_mangadex_url(url: str) -> bool:
     """
     return bool(
         re.match(
-            r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w\-/?#&=]+)?",
+            r"^(?:http(s)?:\/\/)?mangadex\.org\/?",
             url,
         )
         if is_url(url)
@@ -81,22 +81,29 @@ def get_mangadex_resource(url: str) -> Tuple[str, str]:
 
     Returns:
         (Tuple[str, str]): a tuple containing the type of resource and the UUID of the resource
+        For example:
+        ("title", "a96676e5-8ae2-425e-b549-7f15dd34a6d8")
     """
     mangadex_type = ""
     resource = ""
 
     try:
         # Get the type from the url
+        # search = re.search(
+        #    r"^((http[s]?|ftp):\/)?\/?([^:\/\s]+)((\/\w+)*\/)([\w\-\.]+[^#?\s]+)(.*)?(#[\w\-]+)?$",
+        #    url,
+        # )
         search = re.search(
-            r"^((http[s]?|ftp):\/)?\/?([^:\/\s]+)((\/\w+)*\/)([\w\-\.]+[^#?\s]+)(.*)?(#[\w\-]+)?$",
+            r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
             url,
         )
-        mangadex_type = search.group(4).replace("/", "")
+        mangadex_type = search.group(2)
+        resource = search.group(3)
 
         # Get the UUID from the url
-        resource = re.search(
-            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", url
-        ).group(0)
+        # resource = re.search(
+        #    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", url
+        # ).group(0)
     except AttributeError as err:
         raise ValueError("Could not get resource type or resource UUID!") from err
 
