@@ -1,6 +1,6 @@
 """Functions related to MangaDex series"""
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Tuple
 
 from requests import HTTPError
 
@@ -10,15 +10,23 @@ from mangadex_dl import chapter as md_chapter
 logger = logging.getLogger(__name__)
 
 
-def get_series_info(series_id: str) -> Dict:
+def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     """
-    Get the information for the mangadex series
+    Get the information for the mangadex series.
 
     Arguments:
         series_id (str): the UUID of the mangadex series
 
     Returns:
-        (Dict): a dictionary containing all the relevent information of the series
+        (Dict): a dictionary containing all the relevent information of the series. For example:
+            {"id": "a96676e5-8ae2-425e-b549-7f15dd34a6d8",
+             "title": "Komi-san wa Komyushou Desu.",
+             "description": "Komi-san is a beautiful and...", # truncated for readability
+             "year": 2016,
+             "author": "Oda Tomohito"}
+
+    Raises:
+        ValueError: if the response does not contain the required data
     """
 
     series_info = {"id": series_id}
@@ -55,7 +63,7 @@ def get_series_info(series_id: str) -> Dict:
 
 def get_series_chapters(
     series_id: str, excluded_chapters: Tuple[str] = ()
-) -> List[Dict]:
+) -> List[mangadex_dl.SeriesInfo]:
     """
     Gets all the chapters and their relevent information
 
@@ -65,7 +73,8 @@ def get_series_chapters(
                                         excluded
 
     Returns:
-        (List[Dict]): returns the list of chapters and their relevent information
+        (List[SeriesInfo]): returns the list of chapters and their relevent information
+            (see get_series_info)
     """
     chapter_list = []
 

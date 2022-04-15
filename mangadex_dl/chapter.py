@@ -5,7 +5,7 @@ import io
 import json
 import logging
 from math import floor
-from typing import Dict, List
+from typing import List
 
 from requests import HTTPError
 from PIL import Image
@@ -15,7 +15,7 @@ import mangadex_dl
 logger = logging.getLogger(__name__)
 
 
-def get_chapter_info(chapter_id: str) -> Dict:
+def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
     """
     Gets the related info of the given chapter
 
@@ -23,7 +23,16 @@ def get_chapter_info(chapter_id: str) -> Dict:
         chapter_id (str): the UUID of the mangadex chapter
 
     Returns:
-        (Dict): a dictionary containing the relevent chapter information
+        (Dict): a dictionary containing the relevent chapter information. For example:
+            {"id": "56eecc6f-1a4e-464c-b6a4-a1cbdfdfd726",
+             "series_id": "a96676e5-8ae2-425e-b549-7f15dd34a6d8",
+             "chapter": 350.0,
+             "volume": 0,
+             "title": "New Phone"}
+
+    Raises:
+        requests.HTTPError: if the given URL did not return successfuly (status 200)
+        KeyError: if the response doesn't contain the required information
     """
     chapter_info = {"id": chapter_id}
 
@@ -50,10 +59,13 @@ def get_chapter_info(chapter_id: str) -> Dict:
             chapter_info["series_id"] = series_id
             break
     else:
-        raise KeyError("Could not get series_id from chapter!")
+        raise ValueError("Could not get series_id from chapter!")
 
-    chapter_info["chapter"] = attributes.get("chapter", 0)
-    chapter_info["volume"] = attributes.get("volume", 0)
+    try:
+        chapter_info["chapter"] = float(attributes.get("chapter", 0))
+        chapter_info["volume"] = int(attributes.get("volume", 0))
+    except ValueError as err:
+        raise ValueError("Could not get chapter number of volume number") from err
 
     # Set the chapter title
     fallback_title = f"Chapter {chapter_info['chapter']}"
@@ -116,9 +128,12 @@ def get_chapter_directory(
 
     Returns:
         (str): the folder structure for the outputed files
+
+    Raises:
+        TypeError: if the  given chapter number is not a number
     """
-    if not isinstance(chapter_number, float):
-        raise TypeError()
+    if not isinstance(chapter_number, int) and not isinstance(chapter_number, float):
+        raise TypeError("Given chapter number is NaN")
 
     # Remove non-friendly file characters
     chapter_title = re.sub(r"[^\w\-_\. ]", "_", chapter_title)
@@ -141,6 +156,9 @@ def download_chapter_image(url: str, path: str):
     Arguments:
         url (str): the url of the mangadex chapter image (page)
         path (str): the output destination of the downloaded image
+
+    Raises:
+        OSError: if the image has any trouble saving or downloading
     """
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
@@ -179,14 +197,24 @@ def download_chapter_image(url: str, path: str):
         raise OSError("Failed to download and save image!")
 
 
-def download_chapter(output_directory: str, chapter: Dict, series: Dict):
+def download_chapter(
+    output_directory: str,
+    chapter: mangadex_dl.ChapterInfo,
+    series: mangadex_dl.SeriesInfo,
+):
     """
     Downloads all pages of a given chapter to the given output directory
 
     Arguments:
         output_directory (str): where to store the images
-        chapter (Dict): the chapter information (see mangadex_dl.chapter.get_chapter_info)
-        series (Dict): the series information (see mangadex_dl.series.get_series_info)
+        chapter (mangadex_dl.ChapterInfo): the chapter information
+            (see mangadex_dl.chapter.get_chapter_info)
+        series (mangadex_dl.SeriesInfo): the series information
+            (see mangadex_dl.series.get_series_info)
+
+    Raises:
+        KeyError: if one of the parsed dictionaries doesnt contain a required key
+        OSError: if one of the chapter images has trouble saving
     """
     chapter_title = chapter.get("title")
 
@@ -220,9 +248,15 @@ def download_chapter(output_directory: str, chapter: Dict, series: Dict):
             raise OSError from err
 
 
-def get_chapter_cache(cache_file_path: str):
+def get_chapter_cache(cache_file_path: str) -> List[str]:
     """
     Get the chapter cache containing UUIDs of all previously downloaded chapters
+
+    Arguments:
+        cache_file_path (str): the path to the cache file
+
+    Returns:
+        (List[str]): the list of UUIDs in the cache
     """
     try:
         with open(cache_file_path, "r", encoding="utf-8") as fin:

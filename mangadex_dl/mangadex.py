@@ -88,7 +88,9 @@ class MangaDexDL:
                 except OSError as err:
                     raise OSError from err
 
-    def _process_chapter(self, chapter_info, series_info):
+    def _process_chapter(
+        self, chapter_info: mangadex_dl.ChapterInfo, series_info: mangadex_dl.SeriesInfo
+    ):
         if "title" not in series_info or not all(
             key in chapter_info for key in ["chapter", "title", "id"]
         ):

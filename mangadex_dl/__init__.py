@@ -7,6 +7,8 @@ from mangadex_dl.utils import (
     get_mangadex_response,
     create_cbz,
     create_comicinfo,
+    ChapterInfo,
+    SeriesInfo,
 )
 
 from mangadex_dl.mangadex import MangaDexDL

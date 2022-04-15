@@ -6,12 +6,32 @@ import shutil
 import os
 import logging
 from time import sleep, time
-from typing import Dict, Tuple
+from typing import Dict, Tuple, TypedDict
 
 import requests
 from dict2xml import dict2xml
 
 logger = logging.getLogger(__name__)
+
+
+class ChapterInfo(TypedDict):
+    """Typehint for chapter info dictionary"""
+
+    id: str
+    series_id: str
+    chapter: float
+    volume: int
+    title: str
+
+
+class SeriesInfo(TypedDict):
+    """Typehint for series info return"""
+
+    id: str
+    title: str
+    description: str
+    year: int
+    author: str
 
 
 def is_url(url: str) -> bool:
@@ -158,15 +178,19 @@ def create_cbz(chapter_directory: str):
         ) from err
 
 
-def create_comicinfo(output_directory: str, chapter: Dict, series: Dict):
+def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: SeriesInfo):
     """
     Creates a ComicInfo file for the chapter, only tested with Komago, so I have no idea if this
     works elsewhere
 
     Arguments:
         output_directory (str): the directory to save the file
-        chapter (Dict): the chapter information (see mangadex_dl.chapter.get_chapter_info)
-        series (Dict): the series information (see mangadex_dl.series.get_series_info)
+        chapter (ChapterInfo): the chapter information (see mangadex_dl.chapter.get_chapter_info)
+        series (SeriesInfo): the series information (see mangadex_dl.series.get_series_info)
+
+    Raises:
+        KeyError: if one of the keys in the parsed dictionary does not exist
+        OSError: if the ComicInfo.xml file could not be created
     """
     if not all(key in chapter for key in ["title", "chapter"]) or not all(
         key in series for key in ["title", "description", "year", "author"]
