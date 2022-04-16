@@ -10,6 +10,7 @@ import io
 from time import sleep, time
 from typing import Dict, Tuple, TypedDict
 from math import floor
+from datetime import date
 
 import requests
 from dict2xml import dict2xml
@@ -221,7 +222,7 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
             "Series": series.get("title"),
             "Summary": series.get("description"),
             "Number": chapter.get("chapter"),
-            "Year": series.get("year"),
+            "Year": series.get("year", date.today().year),
             "Writer": series.get("author"),
             "Manga": "YesAndRightToLeft",
         }

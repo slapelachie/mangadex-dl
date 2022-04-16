@@ -1,14 +1,11 @@
 """Functions related to chapters"""
 import re
 import os
-import io
 import json
 import logging
-from math import floor
 from typing import List
 
 from requests import HTTPError, Timeout, RequestException
-from PIL import Image
 
 import mangadex_dl
 
