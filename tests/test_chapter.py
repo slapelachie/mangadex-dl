@@ -24,7 +24,7 @@ class TestChapter(unittest.TestCase):
         self.assertIsInstance(chapter_info.get("title"), str)
 
     def test_get_chapter_info_bad_id(self):
-        with self.assertRaises(requests.HTTPError):
+        with self.assertRaises(requests.RequestException):
             _ = mangadex_dl.chapter.get_chapter_info(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )
@@ -42,7 +42,7 @@ class TestChapter(unittest.TestCase):
             self.assertIsInstance(url, str)
 
     def test_get_chapter_image_urls_bad_id(self):
-        with self.assertRaises(requests.HTTPError):
+        with self.assertRaises(requests.RequestException):
             _ = mangadex_dl.chapter.get_chapter_image_urls(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )

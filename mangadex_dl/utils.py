@@ -102,7 +102,8 @@ def get_mangadex_resource(url: str) -> Tuple[str, str]:
         #    url,
         # )
         search = re.search(
-            r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
+            r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/"
+            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
             url,
         )
         mangadex_type = search.group(2)
@@ -265,25 +266,9 @@ def download_image(url: str, path: str, max_height: int = 2400):
             )
 
         try:
-            response = get_mangadex_request(url)
-        except (requests.HTTPError, requests.Timeout):
-            continue
-
-        try:
-            image = Image.open(io.BytesIO(response.content))
-            image = image.convert("RGB")
-
-            # Downscale if too big
-            width, height = image.size
-            if height > max_height:
-                logger.info(
-                    'Image height from "%s" is greater than %d pixels, downscaling...',
-                    url,
-                    max_height,
-                )
-                ratio = width / height
-                new_width = floor(ratio * max_height)
-                image = image.resize((new_width, max_height), Image.BICUBIC)
+            image = get_image_data(url, max_height)
+            if image is None:
+                continue
 
             image.save(path, quality=90)
             break
@@ -291,3 +276,37 @@ def download_image(url: str, path: str, max_height: int = 2400):
             continue
     else:
         raise OSError("Failed to download and save image!")
+
+
+def get_image_data(url: str, max_height: int) -> Image:
+    """
+    Get image data from URL in PIL.Image format
+
+    Arguments:
+        url (str): the url to get the image data from
+        max_height (int): the maximum height of the image, downscaled if too tall
+
+    Returns:
+        (Pil.Image.Image): the PIL image
+    """
+    try:
+        response = get_mangadex_request(url)
+    except (requests.HTTPError, requests.Timeout):
+        return None
+
+    image = Image.open(io.BytesIO(response.content))
+    image = image.convert("RGB")
+
+    # Downscale if too big
+    width, height = image.size
+    if height > max_height:
+        logger.info(
+            'Image height from "%s" is greater than %d pixels, downscaling...',
+            url,
+            max_height,
+        )
+        ratio = width / height
+        new_width = floor(ratio * max_height)
+        image = image.resize((new_width, max_height), Image.BICUBIC)
+
+    return image

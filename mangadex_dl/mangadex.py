@@ -4,8 +4,10 @@ import sys
 import shutil
 import json
 import logging
+from typing import Dict
 
 from requests import RequestException
+from PIL.Image import Image
 
 import mangadex_dl
 from mangadex_dl import series as md_series
@@ -31,6 +33,7 @@ class MangaDexDL:
         out_directory: str,
         override: bool = False,
         download_cover: bool = False,
+        download_chapter_cover: bool = False,
     ):
         """
         Arguments:
@@ -41,6 +44,7 @@ class MangaDexDL:
         self._output_directory = out_directory
         self._override = override
         self._download_cover = download_cover
+        self._download_chapter_cover = download_chapter_cover
 
         try:
             self._ensure_cache_file_exists()
@@ -94,7 +98,10 @@ class MangaDexDL:
                     raise OSError from err
 
     def _process_chapter(
-        self, chapter_info: mangadex_dl.ChapterInfo, series_info: mangadex_dl.SeriesInfo
+        self,
+        chapter_info: mangadex_dl.ChapterInfo,
+        series_info: mangadex_dl.SeriesInfo,
+        volume_images: Dict[str, Image] = None,
     ):
         if "title" not in series_info or not all(
             key in chapter_info for key in ["chapter", "title", "id"]
@@ -114,7 +121,7 @@ class MangaDexDL:
             chapter_title,
         )
 
-        file_directory = os.path.join(
+        chapter_directory = os.path.join(
             self._output_directory,
             md_chapter.get_chapter_directory(
                 series_title, float(chapter_number), chapter_title
@@ -122,7 +129,7 @@ class MangaDexDL:
         )
 
         try:
-            md_chapter.download_chapter(file_directory, chapter_info, series_info)
+            md_chapter.download_chapter(chapter_directory, chapter_info, series_info)
         except (KeyError, OSError) as err:
             raise FailedImageError("Failed to download image!") from err
 
@@ -133,22 +140,31 @@ class MangaDexDL:
 
         logger.info(
             "Creating %s.cbz",
-            file_directory,
+            chapter_directory,
         )
 
         try:
-            mangadex_dl.create_comicinfo(file_directory, chapter_info, series_info)
+            mangadex_dl.create_comicinfo(chapter_directory, chapter_info, series_info)
         except (KeyError, OSError) as err:
-            shutil.rmtree(file_directory)
+            shutil.rmtree(chapter_directory)
             raise ComicInfoError("Failed to create ComicInfo.xml!") from err
 
         try:
-            mangadex_dl.create_cbz(file_directory)
+            mangadex_dl.create_cbz(chapter_directory)
         except (NotADirectoryError, OSError) as err:
-            shutil.rmtree(file_directory)
+            shutil.rmtree(chapter_directory)
             raise OSError("Failed to create archive!") from err
 
-        shutil.rmtree(file_directory)
+        shutil.rmtree(chapter_directory)
+
+        print(volume_images)
+        volume_number = str(chapter_info.get("volume") or "")
+        if volume_number != "":
+            print("here1", volume_number)
+            volume_image = volume_images.get(volume_number)
+            if volume_image is not None:
+                print("here2")
+                volume_image.save(f"{chapter_directory}.jpg")
 
     def handle_url(self, url: str):
         """
@@ -170,6 +186,7 @@ class MangaDexDL:
         Arguments:
             series_id (str): the UUID of the mangadex series
         """
+        volume_images = {}
         logger.info("Handling series with ID: %s", series_id)
 
         try:
@@ -202,10 +219,16 @@ class MangaDexDL:
             series_id, excluded_chapters=excluded_chapters
         )
 
+        if self._download_chapter_cover:
+            logger.info("Getting volume images for %s", series_info.get("title"))
+            volume_images = md_series.get_needed_volume_images(
+                series_id, series_chapters
+            )
+
         # Process all chapters
         for chapter in series_chapters:
             try:
-                self._process_chapter(chapter, series_info)
+                self._process_chapter(chapter, series_info, volume_images=volume_images)
             except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
                 logger.exception(err)
                 sys.exit(1)

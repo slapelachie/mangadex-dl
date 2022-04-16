@@ -13,7 +13,7 @@ class TestSeries(unittest.TestCase):
             "a96676e5-8ae2-425e-b549-7f15dd34a6d8"
         )
 
-        self.assertEqual(len(series_info), 5)
+        self.assertEqual(len(series_info), 6)
 
         self.assertTrue(all(key in series_info for key in expected_keys))
 
@@ -24,7 +24,7 @@ class TestSeries(unittest.TestCase):
         self.assertIsInstance(series_info.get("author"), str)
 
     def test_get_seroes_info_bad_id(self):
-        with self.assertRaises(requests.HTTPError):
+        with self.assertRaises(requests.RequestException):
             _ = mangadex_dl.series.get_series_info(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )

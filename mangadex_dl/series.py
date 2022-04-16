@@ -2,9 +2,10 @@
 import logging
 import os
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from requests import HTTPError, Timeout, RequestException
+from PIL.Image import Image
 
 import mangadex_dl
 from mangadex_dl import chapter as md_chapter
@@ -158,3 +159,98 @@ def download_cover(series_info: mangadex_dl.SeriesInfo, output_directory: str):
         mangadex_dl.download_image(series_info.get("cover_art_url"), cover_path, 1024)
     except OSError as err:
         raise OSError("Failed to download and save cover image!") from err
+
+
+def get_cover_art_volumes(series_id: str) -> Dict[str, str]:
+    """
+    Get the cover art urls for the series
+
+    Arguments:
+        series_id (str): the series UUID to download covers from
+
+    Returns:
+        (Dict[str, str]): a dictionary containing the covers. For example:
+            {"2": "26130c5c-eb15-4ff6-acb9-27532d5ee5c5.jpg",
+             "3": "1a9286d5-55d9-4033-b73f-3948e3b27eeb.jpg"}
+
+    Raises:
+        requests.RequestException: if the list of chapters cannot be downloaded
+    """
+    cover_art_volumes = {}
+
+    try:
+        response = mangadex_dl.get_mangadex_response(
+            f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}"
+        )
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
+
+    data = response.get("data")
+    if data is None:
+        raise ValueError(f"Could not get volume images for {series_id}")
+
+    for volume in data:
+        if volume.get("type") != "cover_art":
+            continue
+
+        volume_attributes = volume.get("attributes")
+        if volume_attributes is None:
+            raise ValueError(f"Could not get volume images for {series_id}")
+
+        if not all(key in volume_attributes for key in ["volume", "fileName"]):
+            raise ValueError(f"Could not get volume images for {series_id}")
+
+        cover_art_volumes[volume_attributes.get("volume")] = volume_attributes.get(
+            "fileName"
+        )
+
+    return cover_art_volumes
+
+
+def get_needed_volume_images(
+    series_id: str, chapters: List[mangadex_dl.ChapterInfo]
+) -> Dict[str, Image]:
+    """
+    Get the required cover arts for the provided chapters
+
+    Arguments:
+        series_id (str): the series UUID the chapters originate from
+        chapters (List[mangadex_dl.ChapterInfo]): the list of chapters
+
+    Returns:
+        (Dict[str, PIL.Image.Image]): the dictionary containing all the volume chapter image data
+
+    Raises:
+        KeyError: if one of the chapters do not have the correct format
+    """
+    cached_volume_images = {}
+
+    cover_art_volumes = get_cover_art_volumes(series_id)
+
+    for chapter in chapters:
+        if "volume" not in chapter:
+            raise KeyError("Volume field in one of the parsed chapters is not valid!")
+
+        volume_number = chapter.get("volume")
+        if volume_number is None:
+            continue
+
+        volume_number = str(volume_number)
+
+        if volume_number not in cover_art_volumes:
+            continue
+
+        file_name = cover_art_volumes.get(volume_number)
+        if file_name is None:
+            continue
+
+        if volume_number not in cached_volume_images:
+            try:
+                cached_volume_images[volume_number] = mangadex_dl.get_image_data(
+                    f"https://uploads.mangadex.org/covers/{series_id}/{file_name}.512.jpg",
+                    512,
+                )
+            except ValueError:
+                continue
+
+    return cached_volume_images
