@@ -63,9 +63,10 @@ def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
 
     try:
         chapter_info["chapter"] = float(attributes.get("chapter", 0))
-        chapter_info["volume"] = int(attributes.get("volume", 0))
+        volume = attributes.get("volume")
+        chapter_info["volume"] = int(volume if volume is not None else 0)
     except ValueError as err:
-        raise ValueError("Could not get chapter number of volume number") from err
+        raise ValueError("Could not get chapter number or volume number") from err
 
     # Set the chapter title
     fallback_title = f"Chapter {chapter_info['chapter']}"

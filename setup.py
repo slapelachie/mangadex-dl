@@ -1,12 +1,11 @@
 """init module"""
 from setuptools import setup
-from mangadex_dl import __author__, __email__, __version__
 
 LONG_DESC = open("README.md").read()
 
 setup(
     name="mangadex_dl",
-    version=__version__,
+    version="1.0.0a0",
     description="Downloader and archiver for mangadex",
     long_description_content_type="text/markdown",
     long_description=LONG_DESC,
@@ -19,8 +18,8 @@ setup(
         "Programming Language :: Python :: 3.10",
     ],
     url="http://github.com/slapelachie/mangadex-dl",
-    author=__author__,
-    author_email=__email__,
+    author="slapelachie",
+    author_email="lslape@slapelachie.xyz",
     license="GPLv2",
     packages=["mangadex_dl"],
     entry_points={"console_scripts": ["mangadex-dl=mangadex_dl.__main__:main"]},
