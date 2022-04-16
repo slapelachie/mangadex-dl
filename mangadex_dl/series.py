@@ -169,7 +169,7 @@ def download_cover(series_info: mangadex_dl.SeriesInfo, output_directory: str):
         raise OSError("Failed to download and save cover image!") from err
 
 
-def get_cover_art_volumes(series_id: str) -> Dict[str, str]:
+def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     """
     Get the cover art urls for the series
 
@@ -188,10 +188,17 @@ def get_cover_art_volumes(series_id: str) -> Dict[str, str]:
 
     try:
         response = mangadex_dl.get_mangadex_response(
-            f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}"
+            f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}&limit=50&offset={offset}"
         )
     except (HTTPError, Timeout) as err:
         raise RequestException from err
+
+    # Get all avaliable covers
+    total_covers = response.get("total", 0)
+    if total_covers > (offset + 50):
+        cover_art_volumes = cover_art_volumes | get_cover_art_volumes(
+            series_id, (offset + 50)
+        )
 
     data = response.get("data")
     if data is None:

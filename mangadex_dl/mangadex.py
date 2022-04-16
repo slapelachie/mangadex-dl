@@ -110,6 +110,9 @@ class MangaDexDL:
                 "Needed information from chapter or series not present! Exiting..."
             )
 
+        if volume_images is None:
+            volume_images = {}
+
         series_title = series_info.get("title")
         chapter_number = chapter_info.get("chapter")
         chapter_title = chapter_info.get("title")
@@ -157,13 +160,10 @@ class MangaDexDL:
 
         shutil.rmtree(chapter_directory)
 
-        print(volume_images)
         volume_number = str(chapter_info.get("volume") or "")
         if volume_number != "":
-            print("here1", volume_number)
             volume_image = volume_images.get(volume_number)
             if volume_image is not None:
-                print("here2")
                 volume_image.save(f"{chapter_directory}.jpg")
 
     def handle_url(self, url: str):
@@ -247,6 +247,7 @@ class MangaDexDL:
             if not self._override
             else []
         )
+
         if chapter_id not in excluded_chapters:
             try:
                 chapter_info = md_chapter.get_chapter_info(chapter_id)
@@ -255,8 +256,16 @@ class MangaDexDL:
                 logger.exception(err)
                 sys.exit(1)
 
+            if self._download_chapter_cover:
+                logger.info("Getting volume images for %s", series_info.get("title"))
+                volume_images = md_series.get_needed_volume_images(
+                    series_info.get("id"), [chapter_info]
+                )
+
             try:
-                self._process_chapter(chapter_info, series_info)
+                self._process_chapter(
+                    chapter_info, series_info, volume_images=volume_images
+                )
             except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
                 logger.exception(err)
                 sys.exit(1)
