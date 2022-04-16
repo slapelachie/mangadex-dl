@@ -7,6 +7,7 @@ from mangadex_dl.utils import (
     get_mangadex_response,
     create_cbz,
     create_comicinfo,
+    download_image,
     ChapterInfo,
     SeriesInfo,
     BadChapterData,

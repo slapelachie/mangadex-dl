@@ -26,7 +26,11 @@ class MangaDexDL:
     """Handles all MangaDexDL related stuff"""
 
     def __init__(
-        self, cache_file_path: str, out_directory: str, override: bool = False
+        self,
+        cache_file_path: str,
+        out_directory: str,
+        override: bool = False,
+        download_cover: bool = False,
     ):
         """
         Arguments:
@@ -36,6 +40,7 @@ class MangaDexDL:
         self._cache_file_path = cache_file_path
         self._output_directory = out_directory
         self._override = override
+        self._download_cover = download_cover
 
         try:
             self._ensure_cache_file_exists()
@@ -176,6 +181,15 @@ class MangaDexDL:
         logger.info(
             "Got series information for %s (%s)", series_info.get("title"), series_id
         )
+
+        if self._download_cover:
+            logger.info("Downloading cover for %s...", series_info.get("title"))
+            try:
+                md_series.download_cover(series_info, self._output_directory)
+            except (KeyError, OSError) as err:
+                logger.exception(err)
+            else:
+                logger.info("Downloaded cover for %s", series_info.get("title"))
 
         excluded_chapters = (
             md_chapter.get_chapter_cache(self._cache_file_path)

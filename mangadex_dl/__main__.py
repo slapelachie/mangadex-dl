@@ -36,6 +36,9 @@ def get_args() -> argparse.ArgumentParser:
     arg.add_argument(
         "--override", action="store_true", help="Ignores any UUIDs in the cache file"
     )
+    arg.add_argument(
+        "--download-cover", action="store_true", help="Download the cover art"
+    )
     arg.add_argument("--version", action="store_true", help="Print version information")
     arg.add_argument("url", help="url to download", nargs="?")
 
@@ -75,6 +78,7 @@ def parse_args(parser: argparse.ArgumentParser):
         os.path.realpath(args.cache_file),
         os.path.realpath(args.out_directory),
         override=args.override,
+        download_cover=args.download_cover,
     )
     mangadex.handle_url(args.url)
 

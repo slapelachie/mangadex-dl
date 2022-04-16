@@ -6,11 +6,14 @@ import shutil
 import os
 import logging
 import time
+import io
 from time import sleep, time
 from typing import Dict, Tuple, TypedDict
+from math import floor
 
 import requests
 from dict2xml import dict2xml
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -233,3 +236,58 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
         raise OSError(
             f'Could not open "{os.path.join(output_directory, "ComicInfo")}" for writing'
         ) from err
+
+
+def download_image(url: str, path: str, max_height: int = 2400):
+    """
+    Download the image from the given url to the specified path
+    Image is converted to RGB, downscaled to a height of max_height pixels if it exceeds this
+    height, and then saved as a to the given path
+
+    The download and saving is attempted 5 times before aborting, this is because there was a time
+    where pillow complained about the image being truncated, and on the next attempt it was fine
+
+    Arguments:
+        url (str): the url of the mangadex chapter image (page)
+        path (str): the output destination of the downloaded image
+        max_height (int): the maximum height
+
+    Raises:
+        OSError: if the image has any trouble saving or downloading
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    # Attempt download 5 times
+    for attempt in range(5):
+        if attempt > 0:
+            logger.warning(
+                "Download for %s failed, retrying (attempt %i/5)", url, attempt
+            )
+
+        try:
+            response = get_mangadex_request(url)
+        except (requests.HTTPError, requests.Timeout):
+            continue
+
+        try:
+            image = Image.open(io.BytesIO(response.content))
+            image = image.convert("RGB")
+
+            # Downscale if too big
+            width, height = image.size
+            if height > max_height:
+                logger.info(
+                    'Image height from "%s" is greater than %d pixels, downscaling...',
+                    url,
+                    max_height,
+                )
+                ratio = width / height
+                new_width = floor(ratio * max_height)
+                image = image.resize((new_width, max_height), Image.BICUBIC)
+
+            image.save(path, quality=90)
+            break
+        except OSError:
+            continue
+    else:
+        raise OSError("Failed to download and save image!")

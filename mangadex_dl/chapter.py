@@ -153,60 +153,6 @@ def get_chapter_directory(
     ) + f" {chapter_title}"
 
 
-def download_chapter_image(url: str, path: str):
-    """
-    Download the image from the given url to the specified path
-    Image is converted to RGB, downscaled to a height of 2400 pixels if it exceeds this height,
-    and then saved as a to the given path
-
-    The download and saving is attempted 5 times before aborting, this is because there was a time
-    where pillow complained about the image being truncated, and on the next attempt it was fine
-
-    Arguments:
-        url (str): the url of the mangadex chapter image (page)
-        path (str): the output destination of the downloaded image
-
-    Raises:
-        OSError: if the image has any trouble saving or downloading
-    """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-
-    # Attempt download 5 times
-    for attempt in range(5):
-        if attempt > 0:
-            logger.warning(
-                "Download for %s failed, retrying (attempt %i/5)", url, attempt
-            )
-
-        try:
-            response = mangadex_dl.get_mangadex_request(url)
-        except (HTTPError, Timeout):
-            continue
-
-        try:
-            image = Image.open(io.BytesIO(response.content))
-            image = image.convert("RGB")
-
-            # Downscale if too big
-            width, height = image.size
-            new_height = 2400
-            if height > new_height:
-                logger.info(
-                    'Image height from "%s" is greater than 2400 pixels, downscaling...',
-                    url,
-                )
-                ratio = width / height
-                new_width = floor(ratio * new_height)
-                image = image.resize((new_width, new_height), Image.BICUBIC)
-
-            image.save(path, quality=90)
-            break
-        except OSError:
-            continue
-    else:
-        raise OSError("Failed to download and save image!")
-
-
 def download_chapter(
     output_directory: str,
     chapter: mangadex_dl.ChapterInfo,
@@ -231,7 +177,6 @@ def download_chapter(
     if not all(key in chapter for key in ["id", "title", "chapter"]):
         raise KeyError(
             "One of the needed fields in the parsed dictionaries is not valid!"
-            "Could not download the chapter."
         )
 
     chapter_number = float(chapter.get("chapter"))
@@ -256,7 +201,7 @@ def download_chapter(
         file_path = os.path.join(output_directory, f"{i:03}.jpg")
 
         try:
-            download_chapter_image(url, file_path)
+            mangadex_dl.download_image(url, file_path)
         except OSError as err:
             raise OSError from err
 
