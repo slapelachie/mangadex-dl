@@ -7,7 +7,7 @@ import logging
 from math import floor
 from typing import List
 
-from requests import HTTPError
+from requests import HTTPError, Timeout, RequestException
 from PIL import Image
 
 import mangadex_dl
@@ -40,8 +40,8 @@ def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
         response = mangadex_dl.get_mangadex_response(
             f"https://api.mangadex.org/chapter/{chapter_id}"
         )
-    except HTTPError as err:
-        raise HTTPError from err
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
 
     data = response.get("data", {})
     attributes = data.get("attributes")
@@ -97,8 +97,8 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
         response = mangadex_dl.get_mangadex_response(
             f"https://api.mangadex.org/at-home/server/{chapter_id}"
         )
-    except HTTPError as err:
-        raise HTTPError from err
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
 
     # Get the image path data
     chapter_image_data = response.get("chapter", {}).get("data")
@@ -180,7 +180,7 @@ def download_chapter_image(url: str, path: str):
 
         try:
             response = mangadex_dl.get_mangadex_request(url)
-        except HTTPError:
+        except (HTTPError, Timeout):
             continue
 
         try:
@@ -192,7 +192,8 @@ def download_chapter_image(url: str, path: str):
             new_height = 2400
             if height > new_height:
                 logger.info(
-                    "Image height from %s is greater than 2400 pixels, downscaling..."
+                    'Image height from "%s" is greater than 2400 pixels, downscaling...',
+                    url,
                 )
                 ratio = width / height
                 new_width = floor(ratio * new_height)
@@ -242,7 +243,10 @@ def download_chapter(
         chapter_title,
     )
 
-    image_urls = get_chapter_image_urls(chapter.get("id"))
+    try:
+        image_urls = get_chapter_image_urls(chapter.get("id"))
+    except RequestException as err:
+        raise RequestException from err
 
     # Download each page
     for i, url in enumerate(image_urls, start=1):

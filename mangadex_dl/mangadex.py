@@ -5,7 +5,7 @@ import shutil
 import json
 import logging
 
-from requests import HTTPError
+from requests import RequestException
 
 import mangadex_dl
 from mangadex_dl import series as md_series
@@ -169,7 +169,7 @@ class MangaDexDL:
 
         try:
             series_info = md_series.get_series_info(series_id)
-        except ValueError as err:
+        except (ValueError, RequestException) as err:
             logger.exception(err)
             sys.exit(1)
 
@@ -214,7 +214,7 @@ class MangaDexDL:
             try:
                 chapter_info = md_chapter.get_chapter_info(chapter_id)
                 series_info = md_series.get_series_info(chapter_info.get("series_id"))
-            except (HTTPError, ValueError, KeyError) as err:
+            except (RequestException, ValueError, KeyError) as err:
                 logger.exception(err)
                 sys.exit(1)
 

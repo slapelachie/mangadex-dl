@@ -5,6 +5,7 @@ import re
 import shutil
 import os
 import logging
+import time
 from time import sleep, time
 from typing import Dict, Tuple, TypedDict
 
@@ -127,7 +128,7 @@ def get_mangadex_request(url: str) -> requests.Response:
     Raises:
         (requests.HTTPError): if the url does not return a valid response
     """
-    response = requests.get(url)
+    response = requests.get(url, timeout=90)
 
     while response.status_code == 429:
         wait_time = int(
@@ -138,7 +139,7 @@ def get_mangadex_request(url: str) -> requests.Response:
         logger.warning("Exceeded rate-limit, waiting %i seconds", wait_time)
         sleep(wait_time)
 
-        response = requests.get(url)
+        response = requests.get(url, timeout=90)
 
     if response.status_code != 200:
         response.raise_for_status()

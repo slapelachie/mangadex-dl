@@ -2,7 +2,7 @@
 import logging
 from typing import List, Tuple
 
-from requests import HTTPError
+from requests import HTTPError, Timeout, RequestException
 
 import mangadex_dl
 from mangadex_dl import chapter as md_chapter
@@ -36,8 +36,8 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
         response = mangadex_dl.get_mangadex_response(
             f"https://api.mangadex.org/manga/{series_id}?includes[]=author"
         )
-    except HTTPError as err:
-        raise HTTPError from err
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
 
     data = response.get("data").get("attributes", {})
     relationships = response.get("data").get("relationships")
