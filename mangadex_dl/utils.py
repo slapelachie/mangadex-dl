@@ -221,7 +221,7 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
             "Title": chapter.get("title"),
             "Series": series.get("title"),
             "Summary": series.get("description"),
-            "Number": chapter.get("chapter"),
+            "Number": f'{chapter.get("chapter"):05.1f}'.rstrip("0").rstrip("."),
             "Year": series.get("year", date.today().year),
             "Writer": series.get("author"),
             "Manga": "YesAndRightToLeft",
