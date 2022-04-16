@@ -49,7 +49,15 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     if relationships is None:
         raise ValueError("Could not get needed information!")
 
-    series_info["title"] = data.get("title", {}).get("en", "No Title")
+    title_info = data.get("title", {})
+    for title_lang in ["en", "ja-ro", "ja"]:
+        series_title = title_info.get(title_lang)
+        if series_title is not None:
+            series_info["title"] = series_title
+            break
+    else:
+        raise ValueError("Could not get title information!")
+
     series_info["description"] = data.get("description", {}).get("en", "")
     series_info["year"] = data.get("year", 1900)
 
