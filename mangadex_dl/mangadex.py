@@ -72,30 +72,30 @@ class MangaDexDL:
             os.makedirs(os.path.dirname(self._cache_file_path), exist_ok=True)
             try:
                 with open(self._cache_file_path, "w+", encoding="utf-8") as fout:
-                    json.dump([], fout, indent=4)
+                    json.dump({}, fout, indent=4)
             except OSError as err:
                 raise OSError(
                     f"Could not create required cache file at {self._cache_file_path}"
                 ) from err
 
-    def _add_chapter_to_downloaded(self, chapter_id: str):
-        for i in range(2):
+    def _add_chapter_to_downloaded(self, series_id: str, chapter_id: str):
+        for _ in range(2):
             try:
                 with open(self._cache_file_path, "r+", encoding="utf-8") as raw_file:
                     file_data = json.load(raw_file)
-                    file_data.append(chapter_id)
+                    file_data.setdefault(series_id, []).append(chapter_id)
                     raw_file.seek(0)
                     json.dump(file_data, raw_file, indent=4)
-            except FileNotFoundError as err:
-                if i != 0:
-                    raise FileNotFoundError(
-                        f"Could not find required cache file at {self._cache_file_path}"
-                    ) from err
-
+                    break
+            except FileNotFoundError:
                 try:
                     self._ensure_cache_file_exists()
-                except OSError as err:
-                    raise OSError from err
+                except OSError:
+                    continue
+        else:
+            raise FileNotFoundError(
+                f"Could not find required cache file at {self._cache_file_path}"
+            )
 
     def _process_chapter(
         self,
@@ -136,10 +136,13 @@ class MangaDexDL:
         except (KeyError, OSError) as err:
             raise FailedImageError("Failed to download image!") from err
 
-        try:
-            self._add_chapter_to_downloaded(chapter_info.get("id"))
-        except OSError as err:
-            raise OSError from err
+        if not self._override:
+            try:
+                self._add_chapter_to_downloaded(
+                    series_info.get("id"), chapter_info.get("id")
+                )
+            except OSError as err:
+                raise OSError from err
 
         logger.info(
             "Creating %s.cbz",
@@ -165,6 +168,18 @@ class MangaDexDL:
             volume_image = volume_images.get(volume_number)
             if volume_image is not None:
                 volume_image.save(f"{chapter_directory}.jpg")
+
+    def _get_excluded_chapters_from_cache(self):
+        excluded_chapters = []
+
+        if self._override:
+            return []
+
+        chapter_cache = md_chapter.get_chapter_cache(self._cache_file_path)
+        for series in chapter_cache:
+            excluded_chapters.extend(chapter_cache[series])
+
+        return excluded_chapters
 
     def handle_url(self, url: str):
         """
@@ -208,12 +223,7 @@ class MangaDexDL:
             else:
                 logger.info("Downloaded cover for %s", series_info.get("title"))
 
-        excluded_chapters = (
-            md_chapter.get_chapter_cache(self._cache_file_path)
-            if not self._override
-            else []
-        )
-
+        excluded_chapters = self._get_excluded_chapters_from_cache()
         logger.info("Getting chapters for %s (%s)", series_info.get("title"), series_id)
         series_chapters = md_series.get_series_chapters(
             series_id, excluded_chapters=excluded_chapters
@@ -242,12 +252,7 @@ class MangaDexDL:
         """
         logger.info("Handling chapter with ID: %s", chapter_id)
 
-        excluded_chapters = (
-            md_chapter.get_chapter_cache(self._cache_file_path)
-            if not self._override
-            else []
-        )
-
+        excluded_chapters = self._get_excluded_chapters_from_cache()
         if chapter_id not in excluded_chapters:
             try:
                 chapter_info = md_chapter.get_chapter_info(chapter_id)

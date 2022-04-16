@@ -3,7 +3,7 @@ import re
 import os
 import json
 import logging
-from typing import List
+from typing import List, Dict
 
 from requests import HTTPError, Timeout, RequestException
 
@@ -203,7 +203,7 @@ def download_chapter(
             raise OSError from err
 
 
-def get_chapter_cache(cache_file_path: str) -> List[str]:
+def get_chapter_cache(cache_file_path: str) -> Dict[str, List[str]]:
     """
     Get the chapter cache containing UUIDs of all previously downloaded chapters
 
@@ -217,4 +217,4 @@ def get_chapter_cache(cache_file_path: str) -> List[str]:
         with open(cache_file_path, "r", encoding="utf-8") as fin:
             return json.load(fin)
     except FileNotFoundError:
-        return []
+        return {}
