@@ -216,13 +216,15 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
             "One of the needed fields in the parsed dictionaries is not valid!"
         )
 
+    series_year = series.get("year", date.today().year) or date.today().year
+
     data = {
         "ComicInfo": {
             "Title": chapter.get("title"),
             "Series": series.get("title"),
             "Summary": series.get("description"),
             "Number": f'{chapter.get("chapter"):.1f}'.rstrip("0").rstrip("."),
-            "Year": series.get("year", date.today().year),
+            "Year": series_year,
             "Writer": series.get("author"),
             "Manga": "YesAndRightToLeft",
         }
