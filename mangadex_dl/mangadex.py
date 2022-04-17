@@ -297,9 +297,11 @@ class MangaDexDL:
                 ]
             )
 
+        sorted_chapters = sorted(chapters, key=lambda d: d.get("id"))
+
         # Process all chapters
         for chapter in tqdm.tqdm(
-            chapters,
+            sorted_chapters,
             ascii=True,
             desc=f"{series_title}",
             disable=not self._progress_bars,
