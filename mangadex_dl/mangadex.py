@@ -263,7 +263,9 @@ class MangaDexDL:
         series_chapters = md_series.get_series_chapters(series_id)
 
         chapters = [
-            chapter for chapter in series_chapters if chapter not in excluded_chapters
+            chapter
+            for chapter in series_chapters
+            if chapter.get("id") not in excluded_chapters
         ]
 
         if self._download_chapter_cover:
