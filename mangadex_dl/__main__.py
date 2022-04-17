@@ -5,9 +5,10 @@ import sys
 import logging
 
 from mangadex_dl import __version__, __copyright__
-from mangadex_dl import MangaDexDL
+from mangadex_dl import MangaDexDL, TqdmLoggingHandler
 
 logger = logging.getLogger(__name__)
+logger.addHandler(TqdmLoggingHandler())
 
 
 def get_args() -> argparse.ArgumentParser:
@@ -22,6 +23,7 @@ def get_args() -> argparse.ArgumentParser:
     )
 
     arg.add_argument("-v", "--verbose", action="store_true", help="verbose logging")
+    arg.add_argument("--progress", action="store_true", help="display progress bars")
     arg.add_argument("--debug", action="store_true", help="debug logging")
     arg.add_argument(
         "-o",
@@ -85,6 +87,7 @@ def parse_args(parser: argparse.ArgumentParser):
         override=args.override,
         download_cover=args.download_cover,
         download_chapter_cover=args.download_chapter_cover,
+        progress_bars=args.progress,
     )
     mangadex.handle_url(args.url)
 

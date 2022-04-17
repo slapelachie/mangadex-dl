@@ -6,6 +6,7 @@ import json
 import logging
 from typing import List
 
+import tqdm
 from requests import RequestException
 
 import mangadex_dl
@@ -13,6 +14,7 @@ from mangadex_dl import series as md_series
 from mangadex_dl import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
+logger.addHandler(mangadex_dl.TqdmLoggingHandler())
 
 
 class FailedImageError(Exception):
@@ -33,6 +35,7 @@ class MangaDexDL:
         override: bool = False,
         download_cover: bool = False,
         download_chapter_cover: bool = False,
+        progress_bars: bool = False,
     ):
         """
         Arguments:
@@ -44,6 +47,7 @@ class MangaDexDL:
         self._override = override
         self._download_cover = download_cover
         self._download_chapter_cover = download_chapter_cover
+        self._progress_bars = progress_bars
 
         try:
             self._ensure_cache_file_exists()
@@ -128,7 +132,12 @@ class MangaDexDL:
         )
 
         try:
-            md_chapter.download_chapter(chapter_directory, chapter_info, series_info)
+            md_chapter.download_chapter(
+                chapter_directory,
+                chapter_info,
+                series_info,
+                progress_bars=self._progress_bars,
+            )
         except (KeyError, OSError) as err:
             raise FailedImageError("Failed to download image!") from err
 
@@ -191,7 +200,14 @@ class MangaDexDL:
             excluded_chapters=downloaded_chapter_images,
         )
 
-        for chapter in chapters:
+        for chapter in tqdm.tqdm(
+            chapters,
+            ascii=True,
+            desc="covers",
+            disable=not self._progress_bars,
+            position=0,
+            leave=False,
+        ):
             if not all(key in chapter for key in ["chapter", "volume", "title"]):
                 raise KeyError(
                     "One of the needed fields in the parsed chapters is not valid!"
@@ -282,7 +298,14 @@ class MangaDexDL:
             )
 
         # Process all chapters
-        for chapter in chapters:
+        for chapter in tqdm.tqdm(
+            chapters,
+            ascii=True,
+            desc=f"{series_title}",
+            disable=not self._progress_bars,
+            position=1,
+            leave=False,
+        ):
             try:
                 self._process_chapter(chapter, series_info)
             except (KeyError, FailedImageError, OSError, ComicInfoError) as err:

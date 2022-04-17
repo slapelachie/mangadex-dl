@@ -23,6 +23,6 @@ setup(
     license="GPLv2",
     packages=["mangadex_dl"],
     entry_points={"console_scripts": ["mangadex-dl=mangadex_dl.__main__:main"]},
-    install_requires=["Pillow>=9.1.0", "dict2xml", "requests"],
+    install_requires=["Pillow>=9.1.0", "dict2xml", "requests", "tqdm"],
     zip_safe=False,
 )

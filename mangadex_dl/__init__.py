@@ -11,6 +11,7 @@ from mangadex_dl.utils import (
     get_image_data,
     make_name_safe,
     get_chapter_directory,
+    TqdmLoggingHandler,
     ChapterInfo,
     SeriesInfo,
     BadChapterData,

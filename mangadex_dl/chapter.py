@@ -5,11 +5,13 @@ import json
 import logging
 from typing import List, Dict
 
+import tqdm
 from requests import HTTPError, Timeout, RequestException
 
 import mangadex_dl
 
 logger = logging.getLogger(__name__)
+logger.addHandler(mangadex_dl.TqdmLoggingHandler())
 
 
 def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
@@ -154,6 +156,7 @@ def download_chapter(
     output_directory: str,
     chapter: mangadex_dl.ChapterInfo,
     series: mangadex_dl.SeriesInfo,
+    progress_bars: bool = False,
 ):
     """
     Downloads all pages of a given chapter to the given output directory
@@ -191,7 +194,17 @@ def download_chapter(
         raise RequestException from err
 
     # Download each page
-    for i, url in enumerate(image_urls, start=1):
+    for i, url in enumerate(
+        tqdm.tqdm(
+            image_urls,
+            ascii=True,
+            desc=f"{chapter_number} {chapter_title}",
+            disable=not progress_bars,
+            position=0,
+            leave=False,
+        ),
+        start=1,
+    ):
         logger.info(
             'Downloading page %i of chapter "%s %s"', i, chapter_number, chapter_title
         )

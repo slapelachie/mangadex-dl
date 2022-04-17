@@ -13,10 +13,31 @@ from math import floor
 from datetime import date
 
 import requests
+import tqdm
 from dict2xml import dict2xml
 from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+
+class TqdmLoggingHandler(logging.Handler):
+    """
+    Handles logging for tqdm
+    """
+
+    def __init__(self, level=logging.NOTSET):
+        super().__init__(level)
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            tqdm.tqdm.write(msg)
+            self.flush()
+        except Exception:
+            self.handleError(record)
+
+
+logger.addHandler(TqdmLoggingHandler())
 
 
 class ChapterInfo(TypedDict):
