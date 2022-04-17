@@ -24,13 +24,16 @@ def get_args() -> argparse.ArgumentParser:
         description="Download mangadex manga from the command line"
     )
 
+    arg.add_argument("--version", action="store_true", help="Print version information")
+    arg.add_argument(
+        "--progress", action="store_true", help="Display progress bars for the download"
+    )
+    arg.add_argument("--debug", action="store_true", help="Debug Logging")
     arg.add_argument("-v", "--verbose", action="store_true", help="verbose logging")
-    arg.add_argument("--progress", action="store_true", help="display progress bars")
-    arg.add_argument("--debug", action="store_true", help="debug logging")
     arg.add_argument(
         "-o",
         "--out-directory",
-        help="output directory for volumes, defaults to ./mangadex-dl",
+        help="Output directory for series, defaults to ./mangadex-dl",
         default=os.path.realpath("./mangadex-dl"),
     )
     arg.add_argument(
@@ -44,12 +47,11 @@ def get_args() -> argparse.ArgumentParser:
         "--download-cover", action="store_true", help="Download the cover art"
     )
     arg.add_argument(
-        "--download-chapter-cover",
+        "--download-chapter-covers",
         action="store_true",
-        help="Download the volume image for that chapter",
+        help="Download only the covers for the chapters of the given series/chapter",
     )
-    arg.add_argument("--version", action="store_true", help="Print version information")
-    arg.add_argument("url", help="url to download", nargs="?")
+    arg.add_argument("url", help="URL of series/chapter to download", nargs="?")
 
     return arg
 
@@ -91,7 +93,7 @@ def parse_args(parser: argparse.ArgumentParser):
         progress_bars=args.progress,
     )
 
-    if args.download_chapter_cover:
+    if args.download_chapter_covers:
         mangadex.download_covers(args.url)
     else:
         mangadex.download(args.url)
