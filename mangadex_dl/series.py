@@ -88,22 +88,27 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     return series_info
 
 
-def get_series_chapters(series_id: str) -> List[mangadex_dl.SeriesInfo]:
+def get_series_chapter_ids(series_id: str) -> List[str]:
     """
-    Gets all the chapters and their relevent information
+    Gets the series chapter ids from the series id
 
     Arguments:
-        series_id (str): the UUID of the mangadex series
+        series_id (str): the series UUID to get the chapters from
 
     Returns:
-        (List[SeriesInfo]): returns the list of chapters and their relevent information
-            (see get_series_info)
-    """
-    chapter_list = []
+        (List[str]): the UUIDs of the series chapters
 
-    response = mangadex_dl.get_mangadex_response(
-        f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
-    )
+    Raises:
+        requests.RequestException: if the request wasn't successful
+    """
+    chapter_ids = []
+
+    try:
+        response = mangadex_dl.get_mangadex_response(
+            f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
+        )
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
 
     # Loop over all the volumes in the manga
     volumes = response.get("volumes")
@@ -133,7 +138,25 @@ def get_series_chapters(series_id: str) -> List[mangadex_dl.SeriesInfo]:
                 )
                 continue
 
-            chapter_list.append(md_chapter.get_chapter_info(chapter_id))
+            chapter_ids.append(chapter_id)
+
+    return chapter_ids
+
+
+def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dl.SeriesInfo]:
+    """
+    Gets all the chapters and their relevent information
+
+    Arguments:
+        series_id (str): the UUID of the mangadex series
+
+    Returns:
+        (List[SeriesInfo]): returns the list of chapters and their relevent information
+            (see get_series_info)
+    """
+    chapter_list = []
+    for chapter_id in chapter_ids:
+        chapter_list.append(md_chapter.get_chapter_info(chapter_id))
 
     return chapter_list
 

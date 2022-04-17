@@ -233,6 +233,8 @@ class MangaDexDL:
         Arguments:
             series_id (str): the UUID of the mangadex series
         """
+        chapters = []
+
         logger.info("Handling series with ID: %s", series_id)
 
         try:
@@ -260,16 +262,24 @@ class MangaDexDL:
 
         excluded_chapters = self._get_excluded_chapters_from_cache()
         logger.info("Getting chapters for %s (%s)", series_title, series_id)
-        series_chapters = md_series.get_series_chapters(series_id)
-
-        chapters = [
-            chapter
-            for chapter in series_chapters
-            if chapter.get("id") not in excluded_chapters
-        ]
+        series_chapter_ids = md_series.get_series_chapter_ids(series_id)
 
         if self._download_chapter_cover:
-            self._download_chapter_covers(series_info, series_chapters)
+            all_chapters = md_series.get_series_chapters(series_chapter_ids)
+            self._download_chapter_covers(series_info, all_chapters)
+            chapters = [
+                chapter
+                for chapter in all_chapters
+                if chapter.get("id") not in excluded_chapters
+            ]
+        else:
+            chapters = md_series.get_series_chapters(
+                [
+                    chapter_id
+                    for chapter_id in series_chapter_ids
+                    if chapter_id not in excluded_chapters
+                ]
+            )
 
         # Process all chapters
         for chapter in chapters:
