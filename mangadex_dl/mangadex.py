@@ -4,26 +4,20 @@ import sys
 import shutil
 import json
 import logging
-from typing import List
+import re
+from typing import List, Tuple
 
 import tqdm
 from requests import RequestException
 
 import mangadex_dl
+from mangadex_dl import ComicInfoError, FailedImageError
 from mangadex_dl import series as md_series
 from mangadex_dl import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dl.TqdmLoggingHandler())
 logger.propagate = False
-
-
-class FailedImageError(Exception):
-    """Raised when image fails to download or be processed"""
-
-
-class ComicInfoError(Exception):
-    """Raised when ComicInfo.xml fails to be created"""
 
 
 class MangaDexDL:
@@ -56,7 +50,7 @@ class MangaDexDL:
 
     def _download_from_mangadex_url(self, url: str):
         try:
-            mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
+            mangadex_type, resource_id = get_mangadex_resource(url)
         except ValueError as err:
             raise ValueError from err
 
@@ -126,7 +120,7 @@ class MangaDexDL:
             self._output_directory,
             os.path.join(
                 mangadex_dl.make_name_safe(series_title),
-                mangadex_dl.get_chapter_directory(float(chapter_number), chapter_title),
+                md_chapter.get_chapter_directory(float(chapter_number), chapter_title),
             ),
         )
 
@@ -216,7 +210,7 @@ class MangaDexDL:
                 self._output_directory,
                 os.path.join(
                     mangadex_dl.make_name_safe(series_title),
-                    mangadex_dl.get_chapter_directory(
+                    md_chapter.get_chapter_directory(
                         chapter.get("chapter"), chapter.get("title")
                     ),
                 ),
@@ -275,7 +269,7 @@ class MangaDexDL:
         Arguments:
             url (str): the url to handle
         """
-        if mangadex_dl.is_mangadex_url(url):
+        if is_mangadex_url(url):
             self._download_from_mangadex_url(url)
         else:
             logger.critical("Not a valid MangaDex URL")
@@ -356,12 +350,18 @@ class MangaDexDL:
                 sys.exit(1)
 
     def download_covers(self, url: str):
-        if not mangadex_dl.is_mangadex_url(url):
+        """
+        Downloads the chapter covers for each chapter from the given url
+
+        Arguments:
+            url (str): the url of the chapter or series to download the chapters for
+        """
+        if not is_mangadex_url(url):
             logger.critical("Not a valid MangaDex URL")
             sys.exit(1)
 
         try:
-            mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
+            mangadex_type, resource_id = get_mangadex_resource(url)
         except ValueError as err:
             raise ValueError from err
 
@@ -396,3 +396,53 @@ class MangaDexDL:
         )
         os.makedirs(series_directory, exist_ok=True)
         self._download_chapter_covers(series_info, chapters)
+
+
+def is_mangadex_url(url: str) -> bool:
+    """
+    Determine if the url given is for MangaDex
+
+    Arguments:
+        url (str): the string to test
+
+    Returns:
+        (bool): true if the string is a valid MangaDex url, false otherwise
+    """
+    return bool(
+        re.match(
+            r"^(?:http(s)?:\/\/)?mangadex\.org\/?",
+            url,
+        )
+        if mangadex_dl.is_url(url)
+        else False
+    )
+
+
+def get_mangadex_resource(url: str) -> Tuple[str, str]:
+    """
+    Gets the resource and its type from a mangadex url
+
+    Arguments:
+        url (str): the url to get the needed information from
+
+    Returns:
+        (Tuple[str, str]): a tuple containing the type of resource and the UUID of the resource
+        For example:
+        ("title", "a96676e5-8ae2-425e-b549-7f15dd34a6d8")
+    """
+    mangadex_type = ""
+    resource = ""
+
+    search = re.search(
+        r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/"
+        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
+        url,
+    )
+    try:
+        mangadex_type = search.group(2)
+        resource = search.group(3)
+
+    except AttributeError as err:
+        raise ValueError("Could not get resource type or resource UUID!") from err
+
+    return (mangadex_type, resource)

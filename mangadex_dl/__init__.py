@@ -1,8 +1,6 @@
 """Stop the warning"""
 from mangadex_dl.utils import (
     is_url,
-    is_mangadex_url,
-    get_mangadex_resource,
     get_mangadex_request,
     get_mangadex_response,
     create_cbz,
@@ -10,14 +8,11 @@ from mangadex_dl.utils import (
     download_image,
     get_image_data,
     make_name_safe,
-    get_chapter_directory,
-    TqdmLoggingHandler,
-    ChapterInfo,
-    SeriesInfo,
-    VolumeInfo,
-    BadChapterData,
 )
 
+from mangadex_dl.exceptions import BadChapterData, ComicInfoError, FailedImageError
+from mangadex_dl.typehints import ChapterInfo, SeriesInfo, VolumeInfo
+from mangadex_dl.logger_utils import TqdmLoggingHandler
 from mangadex_dl.mangadex import MangaDexDL
 
 __version__ = "1.0.0a0"

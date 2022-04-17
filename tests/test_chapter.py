@@ -52,16 +52,16 @@ class TestChapter(unittest.TestCase):
 
     def test_get_chapter_directory(self):
         self.assertEqual(
-            mangadex_dl.chapter.get_chapter_directory("foo", 2.0, "bar"), "foo/002 bar"
+            mangadex_dl.chapter.get_chapter_directory(2.0, "bar"), "002 bar"
         )
         self.assertEqual(
-            mangadex_dl.chapter.get_chapter_directory("foo", 2.5, "bar"),
-            "foo/002.5 bar",
+            mangadex_dl.chapter.get_chapter_directory(2.5, "bar"),
+            "002.5 bar",
         )
 
     def test_get_chapter_directory_nan(self):
         with self.assertRaises(TypeError):
-            _ = mangadex_dl.chapter.get_chapter_directory("foo", "foobar", "bar")
+            _ = mangadex_dl.chapter.get_chapter_directory("foobar", "bar")
 
     def test_download_chapter_image(self):
         warnings.warn("Test not implemented")

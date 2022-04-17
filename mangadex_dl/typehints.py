@@ -1,0 +1,29 @@
+"""Typehints defined for mangadex_dl"""
+from typing import TypedDict, Dict
+
+
+class ChapterInfo(TypedDict):
+    """Typehint for chapter info dictionary"""
+
+    id: str
+    series_id: str
+    chapter: float
+    volume: int
+    title: str
+
+
+class SeriesInfo(TypedDict):
+    """Typehint for series info return"""
+
+    id: str
+    title: str
+    description: str
+    year: int
+    author: str
+
+
+class VolumeInfo(TypedDict):
+    """Typehint for volume"""
+
+    volume: str
+    chapters: Dict

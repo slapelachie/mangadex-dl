@@ -8,65 +8,20 @@ import logging
 import time
 import io
 from time import sleep, time
-from typing import Dict, Tuple, TypedDict
+from typing import Dict
 from math import floor
 from datetime import date
 
 import requests
-import tqdm
 from dict2xml import dict2xml
 from PIL import Image
 
+from mangadex_dl.typehints import ChapterInfo, SeriesInfo
+from mangadex_dl.logger_utils import TqdmLoggingHandler
+
 logger = logging.getLogger(__name__)
-
-
-class TqdmLoggingHandler(logging.Handler):
-    """
-    Handles logging for tqdm
-    """
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            tqdm.tqdm.write(msg)
-            self.flush()
-        except Exception:
-            self.handleError(record)
-
-
 logger.addHandler(TqdmLoggingHandler())
 logger.propagate = False
-
-
-class ChapterInfo(TypedDict):
-    """Typehint for chapter info dictionary"""
-
-    id: str
-    series_id: str
-    chapter: float
-    volume: int
-    title: str
-
-
-class SeriesInfo(TypedDict):
-    """Typehint for series info return"""
-
-    id: str
-    title: str
-    description: str
-    year: int
-    author: str
-
-
-class VolumeInfo(TypedDict):
-    """Typehint for volume"""
-
-    volume: str
-    chapters: Dict
-
-
-class BadChapterData(Exception):
-    """Raised when data retreieved for data is bad"""
 
 
 def is_url(url: str) -> bool:
@@ -85,56 +40,6 @@ def is_url(url: str) -> bool:
             url,
         )
     )
-
-
-def is_mangadex_url(url: str) -> bool:
-    """
-    Determine if the url given is for MangaDex
-
-    Arguments:
-        url (str): the string to test
-
-    Returns:
-        (bool): true if the string is a valid MangaDex url, false otherwise
-    """
-    return bool(
-        re.match(
-            r"^(?:http(s)?:\/\/)?mangadex\.org\/?",
-            url,
-        )
-        if is_url(url)
-        else False
-    )
-
-
-def get_mangadex_resource(url: str) -> Tuple[str, str]:
-    """
-    Gets the resource and its type from a mangadex url
-
-    Arguments:
-        url (str): the url to get the needed information from
-
-    Returns:
-        (Tuple[str, str]): a tuple containing the type of resource and the UUID of the resource
-        For example:
-        ("title", "a96676e5-8ae2-425e-b549-7f15dd34a6d8")
-    """
-    mangadex_type = ""
-    resource = ""
-
-    search = re.search(
-        r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/"
-        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
-        url,
-    )
-    try:
-        mangadex_type = search.group(2)
-        resource = search.group(3)
-
-    except AttributeError as err:
-        raise ValueError("Could not get resource type or resource UUID!") from err
-
-    return (mangadex_type, resource)
 
 
 def get_mangadex_request(url: str) -> requests.Response:
@@ -334,34 +239,7 @@ def get_image_data(url: str, max_height: int) -> Image:
 
 def make_name_safe(name: str) -> str:
     """
-    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
-    from the name to make it useable for folder and file names
+    Replaces any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
+    with a _ (underscore) from the name to make it useable for folder and file names
     """
     return re.sub(r"[^\w\-_\. ]", "_", name)
-
-
-def get_chapter_directory(chapter_number: float, chapter_title: str) -> str:
-    """
-    Get the format of the path for the chapter images
-    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
-    from the chapter title
-
-    Arguments:
-        chapter_number (float): the chapter number
-        chapter_title (str): the title of the chapter
-
-    Returns:
-        (str): the folder structure for the outputed files. For example:
-            chapter_number -> 2.0, chapter_title -> "bar"
-            returns: "002 bar"
-
-    Raises:
-        TypeError: if the  given chapter number is not a number
-    """
-    if not isinstance(chapter_number, int) and not isinstance(chapter_number, float):
-        raise TypeError("Given chapter number is NaN")
-
-    # Remove non-friendly file characters
-    chapter_title = make_name_safe(chapter_title)
-
-    return (f"{chapter_number:05.1f}").rstrip("0").rstrip(".") + f" {chapter_title}"

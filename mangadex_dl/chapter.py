@@ -1,5 +1,4 @@
 """Functions related to chapters"""
-import re
 import os
 import json
 import logging
@@ -120,39 +119,6 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
     return chapter_urls
 
 
-def get_chapter_directory(
-    series_title: str, chapter_number: float, chapter_title: str
-) -> str:
-    """
-    Get the format of the path for the chapter images
-    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
-    from the series title and chapter title
-
-    Arguments:
-        series_title (str): the title of the series
-        chapter_number (float): the chapter number
-        chapter_title (str): the title of the chapter
-
-    Returns:
-        (str): the folder structure for the outputed files. For example:
-            series_title -> "foo", chapter_number -> 2.0, chapter_title -> "bar"
-            returns: "foo/002 bar"
-
-    Raises:
-        TypeError: if the  given chapter number is not a number
-    """
-    if not isinstance(chapter_number, int) and not isinstance(chapter_number, float):
-        raise TypeError("Given chapter number is NaN")
-
-    # Remove non-friendly file characters
-    chapter_title = re.sub(r"[^\w\-_\. ]", "_", chapter_title)
-    series_title = re.sub(r"[^\w\-_\. ]", "_", series_title)
-
-    return (f"{series_title}/{chapter_number:05.1f}").rstrip("0").rstrip(
-        "."
-    ) + f" {chapter_title}"
-
-
 def download_chapter(
     output_directory: str,
     chapter: mangadex_dl.ChapterInfo,
@@ -232,3 +198,30 @@ def get_chapter_cache(cache_file_path: str) -> Dict[str, List[str]]:
             return json.load(fin)
     except FileNotFoundError:
         return {}
+
+
+def get_chapter_directory(chapter_number: float, chapter_title: str) -> str:
+    """
+    Get the format of the path for the chapter images
+    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
+    from the chapter title
+
+    Arguments:
+        chapter_number (float): the chapter number
+        chapter_title (str): the title of the chapter
+
+    Returns:
+        (str): the folder structure for the outputed files. For example:
+            chapter_number -> 2.0, chapter_title -> "bar"
+            returns: "002 bar"
+
+    Raises:
+        TypeError: if the  given chapter number is not a number
+    """
+    if not isinstance(chapter_number, int) and not isinstance(chapter_number, float):
+        raise TypeError("Given chapter number is NaN")
+
+    # Remove non-friendly file characters
+    chapter_title = mangadex_dl.make_name_safe(chapter_title)
+
+    return (f"{chapter_number:05.1f}").rstrip("0").rstrip(".") + f" {chapter_title}"
