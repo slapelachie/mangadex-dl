@@ -14,6 +14,7 @@ from mangadex_dl.utils import (
     TqdmLoggingHandler,
     ChapterInfo,
     SeriesInfo,
+    VolumeInfo,
     BadChapterData,
 )
 

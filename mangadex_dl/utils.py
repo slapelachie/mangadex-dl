@@ -60,6 +60,13 @@ class SeriesInfo(TypedDict):
     author: str
 
 
+class VolumeInfo(TypedDict):
+    """Typehint for volume"""
+
+    volume: str
+    chapters: Dict
+
+
 class BadChapterData(Exception):
     """Raised when data retreieved for data is bad"""
 

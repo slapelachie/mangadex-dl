@@ -89,12 +89,51 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     return series_info
 
 
-def get_series_chapter_ids(series_id: str) -> List[str]:
+def get_volumes_from_series(series_id: str) -> mangadex_dl.VolumeInfo:
+    """
+    Returns the volumes found within the aggregate call of the mangadex api
+
+    Arguments:
+        series_id (str): the series UUID to get the volumes from
+
+    Returns:
+        (Dict): the dictionairy containing the volumes
+
+    Raises:
+        request.RequestException: if the response was unsuccessful
+    """
+    volumes = []
+
+    try:
+        response = mangadex_dl.get_mangadex_response(
+            f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
+        )
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
+
+    raw_volumes = response.get("volumes", {})
+
+    for raw_volume in raw_volumes.values():
+        if not all(key in raw_volume for key in ["volume", "chapters"]):
+            raise ValueError("Could not get the required volume information")
+
+        volumes.append(
+            {
+                "volume": raw_volume.get("volume"),
+                "chapters": raw_volume.get("chapters", {}),
+            }
+        )
+
+    # Loop over all the volumes in the manga
+    return volumes
+
+
+def get_chapter_ids_from_volumes(volumes: List[mangadex_dl.VolumeInfo]) -> List[str]:
     """
     Gets the series chapter ids from the series id
 
     Arguments:
-        series_id (str): the series UUID to get the chapters from
+        volumes (List[mangadex_dl.VolumeInfo]): the list of volumes to get chapter ids from
 
     Returns:
         (List[str]): the UUIDs of the series chapters
@@ -104,16 +143,7 @@ def get_series_chapter_ids(series_id: str) -> List[str]:
     """
     chapter_ids = []
 
-    try:
-        response = mangadex_dl.get_mangadex_response(
-            f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
-        )
-    except (HTTPError, Timeout) as err:
-        raise RequestException from err
-
-    # Loop over all the volumes in the manga
-    volumes = response.get("volumes")
-    for volume in volumes.values():
+    for volume in volumes:
         # MangaDex for some reason gives a list when there is only one chapter in a volume
         chapters_raw = (
             volume.get("chapters")
@@ -162,28 +192,45 @@ def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dl.SeriesInfo]:
     return chapter_list
 
 
-def download_cover(series_info: mangadex_dl.SeriesInfo, output_directory: str):
+def download_cover(
+    series_info: mangadex_dl.SeriesInfo,
+    output_directory: str,
+    volume_number: int = None,
+):
     """
     Downloads the cover to the series in the specified output directory
 
     Arguments:
         series_info (mangadex_dl.SeriesInfo): the series information
         output_directory (str): the base directory where series are downloaded to
+        volume_number (int): the volume cover to download
 
     Rasies:
         KeyError: if one of the fields in series_info is not valid
         OSError: if the cover image could not be downloaded or saved
     """
-    if not all(key in series_info for key in ["title", "cover_art_url"]):
+
+    if not all(key in series_info for key in ["title", "cover_art_url", "id"]):
         raise KeyError(
             "One of the needed fields in the parsed dictionaries is not valid!"
         )
+
+    series_id = series_info.get("id")
+    cover_url = series_info.get("cover_art_url")
+
+    if volume_number is not None:
+        cover_art_volumes = get_cover_art_volumes(series_id)
+        if str(volume_number) in cover_art_volumes:
+            cover_url = (
+                f"https://uploads.mangadex.org/covers/{series_id}"
+                f"/{cover_art_volumes.get(str(volume_number))}.512.jpg"
+            )
 
     series_title = re.sub(r"[^\w\-_\. ]", "_", series_info.get("title"))
     cover_path = os.path.join(output_directory, f"{series_title}/cover.jpg")
 
     try:
-        mangadex_dl.download_image(series_info.get("cover_art_url"), cover_path, 1024)
+        mangadex_dl.download_image(cover_url, cover_path, 1024)
     except OSError as err:
         raise OSError("Failed to download and save cover image!") from err
 

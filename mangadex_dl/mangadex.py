@@ -267,19 +267,30 @@ class MangaDexDL:
         )
         os.makedirs(series_directory, exist_ok=True)
 
+        try:
+            series_volumes = md_series.get_volumes_from_series(series_id)
+        except (RequestException, ValueError) as err:
+            logger.exception(err)
+            sys.exit(1)
+
         if self._download_cover:
             logger.info("Downloading cover for %s...", series_title)
+            volume_numbers = [int(volume.get("volume", 0)) for volume in series_volumes]
             try:
-                md_series.download_cover(series_info, self._output_directory)
+                md_series.download_cover(
+                    series_info,
+                    self._output_directory,
+                    volume_number=max(volume_numbers),
+                )
             except (KeyError, OSError) as err:
                 logger.exception(err)
             else:
                 logger.info("Downloaded cover for %s", series_title)
 
-        excluded_chapters = self._get_excluded_chapters_from_cache()
         logger.info("Getting chapters for %s (%s)", series_title, series_id)
-        series_chapter_ids = md_series.get_series_chapter_ids(series_id)
+        series_chapter_ids = md_series.get_chapter_ids_from_volumes(series_volumes)
 
+        excluded_chapters = self._get_excluded_chapters_from_cache()
         if self._download_chapter_cover:
             all_chapters = md_series.get_series_chapters(series_chapter_ids)
             self._download_chapter_covers(series_info, all_chapters)
