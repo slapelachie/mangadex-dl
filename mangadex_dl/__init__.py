@@ -9,6 +9,8 @@ from mangadex_dl.utils import (
     create_comicinfo,
     download_image,
     get_image_data,
+    make_name_safe,
+    get_chapter_directory,
     ChapterInfo,
     SeriesInfo,
     BadChapterData,

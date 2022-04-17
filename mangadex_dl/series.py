@@ -2,7 +2,7 @@
 import logging
 import os
 import re
-from typing import List, Tuple, Dict
+from typing import List, Dict
 
 from requests import HTTPError, Timeout, RequestException
 from PIL.Image import Image
@@ -88,16 +88,12 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     return series_info
 
 
-def get_series_chapters(
-    series_id: str, excluded_chapters: Tuple[str] = ()
-) -> List[mangadex_dl.SeriesInfo]:
+def get_series_chapters(series_id: str) -> List[mangadex_dl.SeriesInfo]:
     """
     Gets all the chapters and their relevent information
 
     Arguments:
         series_id (str): the UUID of the mangadex series
-        excluded_chapters (Tuple[str]): a list of chapters containing the uuids of chapters to be
-                                        excluded
 
     Returns:
         (List[SeriesInfo]): returns the list of chapters and their relevent information
@@ -137,8 +133,7 @@ def get_series_chapters(
                 )
                 continue
 
-            if chapter_id not in excluded_chapters:
-                chapter_list.append(md_chapter.get_chapter_info(chapter_id))
+            chapter_list.append(md_chapter.get_chapter_info(chapter_id))
 
     return chapter_list
 
@@ -222,8 +217,51 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     return cover_art_volumes
 
 
+def get_downloaded_chapter_images(series_directory: str) -> List[float]:
+    """
+    Gets a list of chapter numbers already downloaded in the series directory
+
+    Arguments:
+        series_directory (str): the series directory to check for the images
+
+    Returns:
+        (List[float]): a list of all the chapter numbers
+    """
+    downloaded_chapters = []
+    directory_images = []
+
+    if os.path.exists(series_directory):
+        directory_images = os.listdir(
+            series_directory,
+        )
+    else:
+        return []
+
+    for chapter_image in directory_images:
+        if chapter_image.endswith(".jpg"):
+            search = re.search(
+                r"([0-9]{3,}(?:.[0-9]{1,})?)\ ([\w\-_\. ]+)", chapter_image
+            )
+            chapter_number = None
+            try:
+                chapter_number = search.group(1)
+            except AttributeError:
+                continue
+
+            if chapter_number is None:
+                continue
+
+            chapter_number = float(chapter_number)
+
+            downloaded_chapters.append(chapter_number)
+
+    return downloaded_chapters
+
+
 def get_needed_volume_images(
-    series_id: str, chapters: List[mangadex_dl.ChapterInfo]
+    series_id: str,
+    chapters: List[mangadex_dl.ChapterInfo],
+    excluded_chapters: List[float] = (),
 ) -> Dict[str, Image]:
     """
     Get the required cover arts for the provided chapters
@@ -231,6 +269,7 @@ def get_needed_volume_images(
     Arguments:
         series_id (str): the series UUID the chapters originate from
         chapters (List[mangadex_dl.ChapterInfo]): the list of chapters
+        excluded_chapters (List[float]): list of chapter numbers to not search for
 
     Returns:
         (Dict[str, PIL.Image.Image]): the dictionary containing all the volume chapter image data
@@ -243,8 +282,13 @@ def get_needed_volume_images(
     cover_art_volumes = get_cover_art_volumes(series_id)
 
     for chapter in chapters:
-        if "volume" not in chapter:
-            raise KeyError("Volume field in one of the parsed chapters is not valid!")
+        if not all(key in chapter for key in ["volume", "chapter"]):
+            raise KeyError(
+                "Volume or Chapter key in one of the parsed chapters is not valid!"
+            )
+
+        if chapter.get("chapter") in excluded_chapters:
+            continue
 
         volume_number = chapter.get("volume")
         if volume_number is None:

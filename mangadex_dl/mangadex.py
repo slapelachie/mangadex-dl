@@ -4,10 +4,9 @@ import sys
 import shutil
 import json
 import logging
-from typing import Dict
+from typing import List
 
 from requests import RequestException
-from PIL.Image import Image
 
 import mangadex_dl
 from mangadex_dl import series as md_series
@@ -101,7 +100,6 @@ class MangaDexDL:
         self,
         chapter_info: mangadex_dl.ChapterInfo,
         series_info: mangadex_dl.SeriesInfo,
-        volume_images: Dict[str, Image] = None,
     ):
         if "title" not in series_info or not all(
             key in chapter_info for key in ["chapter", "title", "id"]
@@ -109,9 +107,6 @@ class MangaDexDL:
             raise KeyError(
                 "Needed information from chapter or series not present! Exiting..."
             )
-
-        if volume_images is None:
-            volume_images = {}
 
         series_title = series_info.get("title")
         chapter_number = chapter_info.get("chapter")
@@ -126,8 +121,9 @@ class MangaDexDL:
 
         chapter_directory = os.path.join(
             self._output_directory,
-            md_chapter.get_chapter_directory(
-                series_title, float(chapter_number), chapter_title
+            os.path.join(
+                mangadex_dl.make_name_safe(series_title),
+                mangadex_dl.get_chapter_directory(float(chapter_number), chapter_title),
             ),
         )
 
@@ -163,12 +159,6 @@ class MangaDexDL:
 
         shutil.rmtree(chapter_directory)
 
-        volume_number = str(chapter_info.get("volume") or "")
-        if volume_number != "":
-            volume_image = volume_images.get(volume_number)
-            if volume_image is not None:
-                volume_image.save(f"{chapter_directory}.jpg")
-
     def _get_excluded_chapters_from_cache(self):
         excluded_chapters = []
 
@@ -180,6 +170,48 @@ class MangaDexDL:
             excluded_chapters.extend(chapter_cache[series])
 
         return excluded_chapters
+
+    def _download_chapter_covers(
+        self,
+        series_info: mangadex_dl.SeriesInfo,
+        chapters: List[mangadex_dl.ChapterInfo],
+    ):
+        series_title = series_info.get("title")
+        downloaded_chapter_images = md_series.get_downloaded_chapter_images(
+            os.path.join(
+                self._output_directory,
+                mangadex_dl.make_name_safe(series_info.get("title")),
+            )
+        )
+
+        logger.info("Getting volume images for %s", series_title)
+        volume_images = md_series.get_needed_volume_images(
+            series_info.get("id"),
+            chapters,
+            excluded_chapters=downloaded_chapter_images,
+        )
+
+        for chapter in chapters:
+            if not all(key in chapter for key in ["chapter", "volume", "title"]):
+                raise KeyError(
+                    "One of the needed fields in the parsed chapters is not valid!"
+                )
+
+            chapter_directory = os.path.join(
+                self._output_directory,
+                os.path.join(
+                    mangadex_dl.make_name_safe(series_title),
+                    mangadex_dl.get_chapter_directory(
+                        chapter.get("chapter"), chapter.get("title")
+                    ),
+                ),
+            )
+
+            volume_number = str(chapter.get("volume") or "")
+            if volume_number != "":
+                volume_image = volume_images.get(volume_number)
+                if volume_image is not None:
+                    volume_image.save(f"{chapter_directory}.jpg")
 
     def handle_url(self, url: str):
         """
@@ -201,7 +233,6 @@ class MangaDexDL:
         Arguments:
             series_id (str): the UUID of the mangadex series
         """
-        volume_images = {}
         logger.info("Handling series with ID: %s", series_id)
 
         try:
@@ -210,35 +241,38 @@ class MangaDexDL:
             logger.exception(err)
             sys.exit(1)
 
-        logger.info(
-            "Got series information for %s (%s)", series_info.get("title"), series_id
+        series_title = series_info.get("title")
+        logger.info("Got series information for %s (%s)", series_title, series_id)
+
+        series_directory = os.path.join(
+            self._output_directory, mangadex_dl.make_name_safe(series_title)
         )
+        os.makedirs(series_directory, exist_ok=True)
 
         if self._download_cover:
-            logger.info("Downloading cover for %s...", series_info.get("title"))
+            logger.info("Downloading cover for %s...", series_title)
             try:
                 md_series.download_cover(series_info, self._output_directory)
             except (KeyError, OSError) as err:
                 logger.exception(err)
             else:
-                logger.info("Downloaded cover for %s", series_info.get("title"))
+                logger.info("Downloaded cover for %s", series_title)
 
         excluded_chapters = self._get_excluded_chapters_from_cache()
-        logger.info("Getting chapters for %s (%s)", series_info.get("title"), series_id)
-        series_chapters = md_series.get_series_chapters(
-            series_id, excluded_chapters=excluded_chapters
-        )
+        logger.info("Getting chapters for %s (%s)", series_title, series_id)
+        series_chapters = md_series.get_series_chapters(series_id)
+
+        chapters = [
+            chapter for chapter in series_chapters if chapter not in excluded_chapters
+        ]
 
         if self._download_chapter_cover:
-            logger.info("Getting volume images for %s", series_info.get("title"))
-            volume_images = md_series.get_needed_volume_images(
-                series_id, series_chapters
-            )
+            self._download_chapter_covers(series_info, series_chapters)
 
         # Process all chapters
-        for chapter in series_chapters:
+        for chapter in chapters:
             try:
-                self._process_chapter(chapter, series_info, volume_images=volume_images)
+                self._process_chapter(chapter, series_info)
             except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
                 logger.exception(err)
                 sys.exit(1)
@@ -251,26 +285,20 @@ class MangaDexDL:
             chapter_id (str): the UUID of the mangadex chapter
         """
         logger.info("Handling chapter with ID: %s", chapter_id)
+        try:
+            chapter_info = md_chapter.get_chapter_info(chapter_id)
+            series_info = md_series.get_series_info(chapter_info.get("series_id"))
+        except (RequestException, ValueError, KeyError) as err:
+            logger.exception(err)
+            sys.exit(1)
+
+        if self._download_chapter_cover:
+            self._download_chapter_covers(series_info, [chapter_info])
 
         excluded_chapters = self._get_excluded_chapters_from_cache()
         if chapter_id not in excluded_chapters:
             try:
-                chapter_info = md_chapter.get_chapter_info(chapter_id)
-                series_info = md_series.get_series_info(chapter_info.get("series_id"))
-            except (RequestException, ValueError, KeyError) as err:
-                logger.exception(err)
-                sys.exit(1)
-
-            if self._download_chapter_cover:
-                logger.info("Getting volume images for %s", series_info.get("title"))
-                volume_images = md_series.get_needed_volume_images(
-                    series_info.get("id"), [chapter_info]
-                )
-
-            try:
-                self._process_chapter(
-                    chapter_info, series_info, volume_images=volume_images
-                )
+                self._process_chapter(chapter_info, series_info)
             except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
                 logger.exception(err)
                 sys.exit(1)

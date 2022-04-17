@@ -96,24 +96,15 @@ def get_mangadex_resource(url: str) -> Tuple[str, str]:
     mangadex_type = ""
     resource = ""
 
+    search = re.search(
+        r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/"
+        r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
+        url,
+    )
     try:
-        # Get the type from the url
-        # search = re.search(
-        #    r"^((http[s]?|ftp):\/)?\/?([^:\/\s]+)((\/\w+)*\/)([\w\-\.]+[^#?\s]+)(.*)?(#[\w\-]+)?$",
-        #    url,
-        # )
-        search = re.search(
-            r"^(?:http(s)?:\/\/)?mangadex\.org\/([\w]+)\/"
-            r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?",
-            url,
-        )
         mangadex_type = search.group(2)
         resource = search.group(3)
 
-        # Get the UUID from the url
-        # resource = re.search(
-        #    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", url
-        # ).group(0)
     except AttributeError as err:
         raise ValueError("Could not get resource type or resource UUID!") from err
 
@@ -313,3 +304,38 @@ def get_image_data(url: str, max_height: int) -> Image:
         image = image.resize((new_width, max_height), Image.BICUBIC)
 
     return image
+
+
+def make_name_safe(name: str) -> str:
+    """
+    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
+    from the name to make it useable for folder and file names
+    """
+    return re.sub(r"[^\w\-_\. ]", "_", name)
+
+
+def get_chapter_directory(chapter_number: float, chapter_title: str) -> str:
+    """
+    Get the format of the path for the chapter images
+    Removes any character that is not a word, - (dash), _ (underscore), . (period) or space (  )
+    from the chapter title
+
+    Arguments:
+        chapter_number (float): the chapter number
+        chapter_title (str): the title of the chapter
+
+    Returns:
+        (str): the folder structure for the outputed files. For example:
+            chapter_number -> 2.0, chapter_title -> "bar"
+            returns: "002 bar"
+
+    Raises:
+        TypeError: if the  given chapter number is not a number
+    """
+    if not isinstance(chapter_number, int) and not isinstance(chapter_number, float):
+        raise TypeError("Given chapter number is NaN")
+
+    # Remove non-friendly file characters
+    chapter_title = make_name_safe(chapter_title)
+
+    return (f"{chapter_number:05.1f}").rstrip("0").rstrip(".") + f" {chapter_title}"
