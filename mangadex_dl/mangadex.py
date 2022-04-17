@@ -248,7 +248,15 @@ class MangaDexDL:
         if "title" not in series_info:
             logger.error("Could not get title from the parsed series info")
 
-        volume_numbers = [int(volume.get("volume", 0)) for volume in volumes]
+        volume_numbers = []
+        for volume in volumes:
+            try:
+                volume_number = int(volume.get("volume"))
+            except ValueError:
+                volume_number = 0
+
+            volume_numbers.append(volume_number)
+
         try:
             md_series.download_cover(
                 series_info,
