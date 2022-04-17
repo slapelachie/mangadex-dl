@@ -15,6 +15,7 @@ from mangadex_dl import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dl.TqdmLoggingHandler())
+logger.propagate = False
 
 
 class FailedImageError(Exception):
@@ -34,7 +35,6 @@ class MangaDexDL:
         out_directory: str,
         override: bool = False,
         download_cover: bool = False,
-        download_chapter_cover: bool = False,
         progress_bars: bool = False,
     ):
         """
@@ -46,7 +46,6 @@ class MangaDexDL:
         self._output_directory = out_directory
         self._override = override
         self._download_cover = download_cover
-        self._download_chapter_cover = download_chapter_cover
         self._progress_bars = progress_bars
 
         try:
@@ -55,7 +54,7 @@ class MangaDexDL:
             logger.exception(err)
             sys.exit(1)
 
-    def _handle_mangadex_url(self, url: str):
+    def _download_from_mangadex_url(self, url: str):
         try:
             mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
         except ValueError as err:
@@ -65,9 +64,9 @@ class MangaDexDL:
         logger.debug("Resource ID is %s", resource_id)
 
         if mangadex_type == "title":
-            self.handle_series_id(resource_id)
+            self.download_series_from_id(resource_id)
         elif mangadex_type == "chapter":
-            self.handle_chapter_id(resource_id)
+            self.download_chapter_from_id(resource_id)
 
     def _ensure_cache_file_exists(self):
         if not os.path.exists(self._cache_file_path):
@@ -147,7 +146,7 @@ class MangaDexDL:
                     series_info.get("id"), chapter_info.get("id")
                 )
             except OSError as err:
-                raise OSError from err
+                raise err
 
         logger.info(
             "Creating %s.cbz",
@@ -229,7 +228,39 @@ class MangaDexDL:
                 if volume_image is not None:
                     volume_image.save(f"{chapter_directory}.jpg")
 
-    def handle_url(self, url: str):
+    def _get_chapters_from_volumes(self, volumes: List[mangadex_dl.VolumeInfo]):
+        excluded_chapters = self._get_excluded_chapters_from_cache()
+
+        series_chapter_ids = md_series.get_chapter_ids_from_volumes(volumes)
+        series_chapters = [
+            chapter_id
+            for chapter_id in series_chapter_ids
+            if chapter_id not in excluded_chapters
+        ]
+
+        chapters = md_series.get_series_chapters(series_chapters)
+
+        return sorted(chapters, key=lambda d: d.get("chapter"))
+
+    def _download_series_cover(
+        self, series_info: mangadex_dl.SeriesInfo, volumes: List[mangadex_dl.VolumeInfo]
+    ):
+        if "title" not in series_info:
+            logger.error("Could not get title from the parsed series info")
+
+        volume_numbers = [int(volume.get("volume", 0)) for volume in volumes]
+        try:
+            md_series.download_cover(
+                series_info,
+                self._output_directory,
+                volume_number=max(volume_numbers),
+            )
+        except (KeyError, OSError) as err:
+            logger.exception(err)
+        else:
+            logger.info("Downloaded cover for %s", series_info.get("title"))
+
+    def download(self, url: str):
         """
         Handle the given url
 
@@ -237,20 +268,18 @@ class MangaDexDL:
             url (str): the url to handle
         """
         if mangadex_dl.is_mangadex_url(url):
-            self._handle_mangadex_url(url)
+            self._download_from_mangadex_url(url)
         else:
             logger.critical("Not a valid MangaDex URL")
             sys.exit(1)
 
-    def handle_series_id(self, series_id: str):
+    def download_series_from_id(self, series_id: str):
         """
         Handles a given series ID and starts the download process of the entire series
 
         Arguments:
             series_id (str): the UUID of the mangadex series
         """
-        chapters = []
-
         logger.info("Handling series with ID: %s", series_id)
 
         try:
@@ -275,44 +304,14 @@ class MangaDexDL:
 
         if self._download_cover:
             logger.info("Downloading cover for %s...", series_title)
-            volume_numbers = [int(volume.get("volume", 0)) for volume in series_volumes]
-            try:
-                md_series.download_cover(
-                    series_info,
-                    self._output_directory,
-                    volume_number=max(volume_numbers),
-                )
-            except (KeyError, OSError) as err:
-                logger.exception(err)
-            else:
-                logger.info("Downloaded cover for %s", series_title)
+            self._download_series_cover(series_info, series_volumes)
 
         logger.info("Getting chapters for %s (%s)", series_title, series_id)
-        series_chapter_ids = md_series.get_chapter_ids_from_volumes(series_volumes)
-
-        excluded_chapters = self._get_excluded_chapters_from_cache()
-        if self._download_chapter_cover:
-            all_chapters = md_series.get_series_chapters(series_chapter_ids)
-            self._download_chapter_covers(series_info, all_chapters)
-            chapters = [
-                chapter
-                for chapter in all_chapters
-                if chapter.get("id") not in excluded_chapters
-            ]
-        else:
-            chapters = md_series.get_series_chapters(
-                [
-                    chapter_id
-                    for chapter_id in series_chapter_ids
-                    if chapter_id not in excluded_chapters
-                ]
-            )
-
-        sorted_chapters = sorted(chapters, key=lambda d: d.get("id"))
+        chapters = self._get_chapters_from_volumes(series_volumes)
 
         # Process all chapters
         for chapter in tqdm.tqdm(
-            sorted_chapters,
+            chapters,
             ascii=True,
             desc=f"{series_title}",
             disable=not self._progress_bars,
@@ -325,7 +324,7 @@ class MangaDexDL:
                 logger.exception(err)
                 sys.exit(1)
 
-    def handle_chapter_id(self, chapter_id: str):
+    def download_chapter_from_id(self, chapter_id: str):
         """
         Handles a given chapter id and prepares to start downloading the chapter
 
@@ -340,9 +339,6 @@ class MangaDexDL:
             logger.exception(err)
             sys.exit(1)
 
-        if self._download_chapter_cover:
-            self._download_chapter_covers(series_info, [chapter_info])
-
         excluded_chapters = self._get_excluded_chapters_from_cache()
         if chapter_id not in excluded_chapters:
             try:
@@ -350,3 +346,45 @@ class MangaDexDL:
             except (KeyError, FailedImageError, OSError, ComicInfoError) as err:
                 logger.exception(err)
                 sys.exit(1)
+
+    def download_covers(self, url: str):
+        if not mangadex_dl.is_mangadex_url(url):
+            logger.critical("Not a valid MangaDex URL")
+            sys.exit(1)
+
+        try:
+            mangadex_type, resource_id = mangadex_dl.get_mangadex_resource(url)
+        except ValueError as err:
+            raise ValueError from err
+
+        logger.debug("Supplied URL is of type %s", mangadex_type)
+        logger.debug("Resource ID is %s", resource_id)
+
+        if mangadex_type == "title":
+            try:
+                series_info = md_series.get_series_info(resource_id)
+                series_volumes = md_series.get_volumes_from_series(resource_id)
+            except (ValueError, RequestException) as err:
+                logger.exception(err)
+                sys.exit(1)
+
+            series_chapter_ids = md_series.get_chapter_ids_from_volumes(series_volumes)
+            chapters = md_series.get_series_chapters(series_chapter_ids)
+        elif mangadex_type == "chapter":
+            try:
+                chapter_info = md_chapter.get_chapter_info(resource_id)
+                series_info = md_series.get_series_info(chapter_info.get("series_id"))
+            except (RequestException, ValueError, KeyError) as err:
+                logger.exception(err)
+                sys.exit(1)
+
+            chapters = [chapter_info]
+        else:
+            logger.critical("MangaDex resource type is unhandled!")
+            sys.exit(1)
+
+        series_directory = os.path.join(
+            self._output_directory, mangadex_dl.make_name_safe(series_info.get("title"))
+        )
+        os.makedirs(series_directory, exist_ok=True)
+        self._download_chapter_covers(series_info, chapters)

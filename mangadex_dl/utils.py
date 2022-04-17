@@ -25,9 +25,6 @@ class TqdmLoggingHandler(logging.Handler):
     Handles logging for tqdm
     """
 
-    def __init__(self, level=logging.NOTSET):
-        super().__init__(level)
-
     def emit(self, record):
         try:
             msg = self.format(record)
@@ -38,6 +35,7 @@ class TqdmLoggingHandler(logging.Handler):
 
 
 logger.addHandler(TqdmLoggingHandler())
+logger.propagate = False
 
 
 class ChapterInfo(TypedDict):

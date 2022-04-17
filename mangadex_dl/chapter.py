@@ -12,6 +12,7 @@ import mangadex_dl
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dl.TqdmLoggingHandler())
+logger.propagate = False
 
 
 def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:

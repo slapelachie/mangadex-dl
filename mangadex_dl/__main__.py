@@ -7,8 +7,10 @@ import logging
 from mangadex_dl import __version__, __copyright__
 from mangadex_dl import MangaDexDL, TqdmLoggingHandler
 
+
 logger = logging.getLogger(__name__)
 logger.addHandler(TqdmLoggingHandler())
+logger.propagate = False
 
 
 def get_args() -> argparse.ArgumentParser:
@@ -86,10 +88,13 @@ def parse_args(parser: argparse.ArgumentParser):
         os.path.realpath(args.out_directory),
         override=args.override,
         download_cover=args.download_cover,
-        download_chapter_cover=args.download_chapter_cover,
         progress_bars=args.progress,
     )
-    mangadex.handle_url(args.url)
+
+    if args.download_chapter_cover:
+        mangadex.download_covers(args.url)
+    else:
+        mangadex.download(args.url)
 
 
 def main():

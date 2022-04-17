@@ -12,6 +12,7 @@ from mangadex_dl import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dl.TqdmLoggingHandler())
+logger.propagate = False
 
 
 def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
