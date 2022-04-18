@@ -249,3 +249,12 @@ def make_name_safe(name: str) -> str:
     with a _ (underscore) from the name to make it useable for folder and file names
     """
     return re.sub(r"[^\w\-_\. ]", "_", name)
+
+
+def is_number(number: str):
+    """Checks if the supplied string is a number"""
+    try:
+        float(number)
+        return True
+    except ValueError:
+        return False

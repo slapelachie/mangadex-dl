@@ -90,7 +90,44 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     return series_info
 
 
-def get_volumes_from_series(series_id: str) -> mangadex_dl.VolumeInfo:
+def process_mangadex_volumes(mangadex_volumes: Dict) -> Dict[str, Dict[str, List[str]]]:
+    """
+    Converts the mangadex response volume to a more useable dictionary
+
+    Arguments:
+        mangadex_volumes (Dict): the volume part of the response from the mangadex aggregate query
+            (see get_volumes_from_series)
+
+    Returns:
+        (Dict[str, Dict[str, List[str]]])
+
+    Raises:
+        KeyError: if the mangadex_volume does not have the required keys
+    """
+    volumes = {}
+    for mangadex_volume in mangadex_volumes.values():
+        if not all(key in mangadex_volume for key in ["volume", "chapters"]):
+            raise KeyError("Could not get the required volume information")
+
+        volume_number = mangadex_volume.get("volume")
+        for mangadex_chapter in mangadex_volume.get("chapters").values():
+            if not all(key in mangadex_chapter for key in ["chapter", "id", "others"]):
+                raise KeyError(
+                    "Could not get the required chapter in volume information"
+                )
+
+            chapter_number = mangadex_chapter.get("chapter")
+            volumes.setdefault(volume_number, {})[chapter_number] = [
+                mangadex_chapter.get("id")
+            ]
+
+            other_chapters = mangadex_chapter.get("others", [])
+            volumes.get(volume_number).get(chapter_number).extend(other_chapters)
+
+    return volumes
+
+
+def get_volumes_from_series(series_id: str) -> Dict[str, Dict[str, List[str]]]:
     """
     Returns the volumes found within the aggregate call of the mangadex api
 
@@ -103,8 +140,6 @@ def get_volumes_from_series(series_id: str) -> mangadex_dl.VolumeInfo:
     Raises:
         request.RequestException: if the response was unsuccessful
     """
-    volumes = []
-
     try:
         response = mangadex_dl.get_mangadex_response(
             f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
@@ -113,66 +148,26 @@ def get_volumes_from_series(series_id: str) -> mangadex_dl.VolumeInfo:
         raise RequestException from err
 
     raw_volumes = response.get("volumes", {})
-
-    for raw_volume in raw_volumes.values():
-        if not all(key in raw_volume for key in ["volume", "chapters"]):
-            raise ValueError("Could not get the required volume information")
-
-        volumes.append(
-            {
-                "volume": raw_volume.get("volume"),
-                "chapters": raw_volume.get("chapters", {}),
-            }
-        )
-
-    # Loop over all the volumes in the manga
-    return volumes
+    try:
+        return process_mangadex_volumes(raw_volumes)
+    except KeyError as err:
+        raise err
 
 
-def get_chapter_ids_from_volumes(volumes: List[mangadex_dl.VolumeInfo]) -> List[str]:
+def get_grouped_chapter_ids_from_volumes(
+    volumes: Dict[str, Dict[str, List[str]]]
+) -> List[List[str]]:
     """
     Gets the series chapter ids from the series id
 
     Arguments:
-        volumes (List[mangadex_dl.VolumeInfo]): the list of volumes to get chapter ids from
+        volumes (Dict[str, Dict[str, str]]): the list of volumes to get chapter ids from, gets the
+            first chapter id if there are multiple for a chapter
 
     Returns:
-        (List[str]): the UUIDs of the series chapters
-
-    Raises:
-        requests.RequestException: if the request wasn't successful
+        (List[List[str]]): the UUIDs of the series chapters
     """
-    chapter_ids = []
-
-    for volume in volumes:
-        # MangaDex for some reason gives a list when there is only one chapter in a volume
-        chapters_raw = (
-            volume.get("chapters")
-            if not isinstance(volume.get("chapters"), list)
-            else {"0": volume.get("chapters")[0]}
-        )
-
-        if chapters_raw is None:
-            logger.warning(
-                "Chapters not found for volume %s", volume.get("volume", "N/A")
-            )
-            continue
-
-        chapters = chapters_raw.values()
-
-        # Add chapters to list
-        for chapter in chapters:
-            chapter_id = chapter.get("id")
-            if chapter_id is None:
-                logger.warning(
-                    "Chapter id could not be retrieved for volume %s",
-                    volume.get("volume", "N/A"),
-                )
-                continue
-
-            chapter_ids.append(chapter_id)
-
-    return chapter_ids
+    return [uuids for chapters in volumes.values() for uuids in chapters.values()]
 
 
 def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dl.SeriesInfo]:
@@ -289,7 +284,9 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     return cover_art_volumes
 
 
-def get_downloaded_chapter_images(series_directory: str) -> List[float]:
+def get_downloaded_chapter_content(
+    series_directory: str, extension: str
+) -> List[float]:
     """
     Gets a list of chapter numbers already downloaded in the series directory
 
@@ -310,7 +307,7 @@ def get_downloaded_chapter_images(series_directory: str) -> List[float]:
         return []
 
     for chapter_image in directory_images:
-        if chapter_image.endswith(".jpg"):
+        if chapter_image.endswith(f".{extension}"):
             search = re.search(
                 r"([0-9]{3,}(?:.[0-9]{1,})?)\ ([\w\-_\. ]+)", chapter_image
             )

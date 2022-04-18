@@ -5,7 +5,7 @@ import shutil
 import json
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import tqdm
 from requests import RequestException
@@ -161,17 +161,17 @@ class MangaDexDL:
 
         shutil.rmtree(chapter_directory)
 
-    def _get_excluded_chapters_from_cache(self):
-        excluded_chapters = []
+    def _get_chapters_from_cache(self):
+        chapters = []
 
         if self._override:
             return []
 
         chapter_cache = md_chapter.get_chapter_cache(self._cache_file_path)
         for series in chapter_cache:
-            excluded_chapters.extend(chapter_cache[series])
+            chapters.extend(chapter_cache[series])
 
-        return excluded_chapters
+        return chapters
 
     def _download_chapter_covers(
         self,
@@ -179,11 +179,12 @@ class MangaDexDL:
         chapters: List[mangadex_dl.ChapterInfo],
     ):
         series_title = series_info.get("title")
-        downloaded_chapter_images = md_series.get_downloaded_chapter_images(
+        downloaded_chapter_images = md_series.get_downloaded_chapter_content(
             os.path.join(
                 self._output_directory,
                 mangadex_dl.make_name_safe(series_info.get("title")),
-            )
+            ),
+            "jpg",
         )
 
         logger.info("Getting volume images for %s", series_title)
@@ -222,17 +223,15 @@ class MangaDexDL:
                 if volume_image is not None:
                     volume_image.save(f"{chapter_directory}.jpg")
 
-    def _get_chapters_from_volumes(self, volumes: List[mangadex_dl.VolumeInfo]):
-        excluded_chapters = self._get_excluded_chapters_from_cache()
-
-        series_chapter_ids = md_series.get_chapter_ids_from_volumes(volumes)
-        series_chapters = [
-            chapter_id
-            for chapter_id in series_chapter_ids
-            if chapter_id not in excluded_chapters
-        ]
-
-        chapters = md_series.get_series_chapters(series_chapters)
+    def _get_pending_chapters_from_volumes(
+        self, volumes: Dict[str, Dict[str, List[str]]]
+    ):
+        excluded_chapters = self._get_chapters_from_cache()
+        grouped_ids = md_series.get_grouped_chapter_ids_from_volumes(volumes)
+        chapter_ids = md_chapter.get_ids_not_excluded_chapters(
+            grouped_ids, excluded_chapters
+        )
+        chapters = md_series.get_series_chapters(chapter_ids)
 
         return sorted(chapters, key=lambda d: d.get("chapter"))
 
@@ -243,9 +242,9 @@ class MangaDexDL:
             logger.error("Could not get title from the parsed series info")
 
         volume_numbers = []
-        for volume in volumes:
+        for raw_volume_number in volumes:
             try:
-                volume_number = int(volume.get("volume"))
+                volume_number = int(raw_volume_number)
             except ValueError:
                 volume_number = 0
 
@@ -309,7 +308,7 @@ class MangaDexDL:
             self._download_series_cover(series_info, series_volumes)
 
         logger.info("Getting chapters for %s (%s)", series_title, series_id)
-        chapters = self._get_chapters_from_volumes(series_volumes)
+        chapters = self._get_pending_chapters_from_volumes(series_volumes)
 
         # Process all chapters
         for chapter in tqdm.tqdm(
@@ -341,7 +340,7 @@ class MangaDexDL:
             logger.exception(err)
             sys.exit(1)
 
-        excluded_chapters = self._get_excluded_chapters_from_cache()
+        excluded_chapters = self._get_chapters_from_cache()
         if chapter_id not in excluded_chapters:
             try:
                 self._process_chapter(chapter_info, series_info)
@@ -376,8 +375,13 @@ class MangaDexDL:
                 logger.exception(err)
                 sys.exit(1)
 
-            series_chapter_ids = md_series.get_chapter_ids_from_volumes(series_volumes)
-            chapters = md_series.get_series_chapters(series_chapter_ids)
+            grouped_chapter_ids = md_series.get_grouped_chapter_ids_from_volumes(
+                series_volumes
+            )
+            pending_chapter_ids = md_chapter.get_ids_matched(
+                grouped_chapter_ids, self._get_chapters_from_cache()
+            )
+            chapters = md_series.get_series_chapters(pending_chapter_ids)
         elif mangadex_type == "chapter":
             try:
                 chapter_info = md_chapter.get_chapter_info(resource_id)
@@ -394,6 +398,7 @@ class MangaDexDL:
         series_directory = os.path.join(
             self._output_directory, mangadex_dl.make_name_safe(series_info.get("title"))
         )
+
         os.makedirs(series_directory, exist_ok=True)
         self._download_chapter_covers(series_info, chapters)
 

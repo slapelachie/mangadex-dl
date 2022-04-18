@@ -1,0 +1,38 @@
+{
+	"1": {
+		"volume": "1",
+		"count": 2,
+		"chapters": {
+			"1": {
+				"chapter": "1",
+				"id": "1615adcb-5167-4459-8b12-ee7cfbdb10d9",
+				"others": ["3fcf382d-cf20-4e52-8ebf-cbb10272fca9"],
+				"count": 2
+			},
+			"2": {
+				"chapter": "2",
+				"id": "ceab7438-866d-476c-9943-fa3fa3999f49",
+				"others": [],
+				"count": 1
+			}
+		}
+	},
+	"2": {
+		"volume": "2",
+		"count": 2,
+		"chapters": {
+			"3": {
+				"chapter": "3",
+				"id": "ddfc1bae-3729-490c-bd58-25f8441b74ec",
+				"others": [],
+				"count": 1
+			},
+			"4": {
+				"chapter": "4",
+				"id": "4c3d0be7-e85f-49c2-8037-df42850e3ff6",
+				"others": [],
+				"count": 1
+			}
+		}
+	}
+}

@@ -72,6 +72,25 @@ class TestChapter(unittest.TestCase):
     def test_get_chapter_cache(self):
         warnings.warn("Test not implmented")
 
+    def test_get_ids_not_excluded_chapters(self):
+        grouped_ids = [["a", "b"], ["c", "d"], ["e", "f"]]
+        excluded_ids = ["c"]
+
+        self.assertListEqual(
+            mangadex_dl.chapter.get_ids_not_excluded_chapters(
+                grouped_ids, excluded_ids
+            ),
+            ["a", "e"],
+        )
+
+    def test_get_ids_matched(self):
+        grouped_ids = [["a", "b"], ["c", "d"], ["e", "f"]]
+        excluded_ids = ["c", "f", "g", "k"]
+
+        self.assertListEqual(
+            mangadex_dl.chapter.get_ids_matched(grouped_ids, excluded_ids), ["c", "f"]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,7 @@ from mangadex_dl.utils import (
     download_image,
     get_image_data,
     make_name_safe,
+    is_number,
 )
 
 from mangadex_dl.exceptions import BadChapterData, ComicInfoError, FailedImageError

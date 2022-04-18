@@ -2,6 +2,7 @@
 import os
 import json
 import logging
+import re
 from typing import List, Dict
 
 import tqdm
@@ -225,3 +226,41 @@ def get_chapter_directory(chapter_number: float, chapter_title: str) -> str:
     chapter_title = mangadex_dl.make_name_safe(chapter_title)
 
     return (f"{chapter_number:05.1f}").rstrip("0").rstrip(".") + f" {chapter_title}"
+
+
+def get_ids_not_excluded_chapters(
+    grouped_ids: List[List[str]], excluded_chapters: List[str]
+) -> List[str]:
+    """
+    Gets the first id from a group of ids iff none of the ids in the group are in the excluded
+    chapters
+
+    Arguments:
+        grouped_ids (List[List[str]]): the grouped ids to process
+        excluded_chapters (List[str]): the list of chapters to be excluded
+
+    Returns:
+        (List[str]): the first id iff match above statement
+    """
+    ids = []
+    for chapter_ids in grouped_ids:
+        if not any(uuid in chapter_ids for uuid in excluded_chapters):
+            ids.append(chapter_ids[0])
+
+    return ids
+
+
+def get_ids_matched(grouped_ids: List[List[str]], to_match: List[str]) -> List[str]:
+    """
+    Get the list of ids iff the id is in the to_match list
+
+    Arguments:
+        grouped_ids (List[List[str]]): the grouped set of UUIDs
+        to_match (List[str]): list of ids to match against
+
+    Returns:
+        (List[str]): the matched ids according to the above statement
+    """
+    return [
+        uuid for chapter_ids in grouped_ids for uuid in chapter_ids if uuid in to_match
+    ]
