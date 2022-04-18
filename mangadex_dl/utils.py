@@ -14,7 +14,7 @@ from datetime import date
 
 import requests
 from dict2xml import dict2xml
-from PIL import Image
+from PIL import Image, ImageFile
 
 from mangadex_dl.typehints import ChapterInfo, SeriesInfo
 from mangadex_dl.logger_utils import TqdmLoggingHandler
@@ -181,6 +181,7 @@ def download_image(url: str, path: str, max_height: int = 2400):
     Raises:
         OSError: if the image has any trouble saving or downloading
     """
+    ImageFile.LOAD_TRUNCATED_IMAGES = False
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
     # Attempt download 5 times
@@ -198,7 +199,12 @@ def download_image(url: str, path: str, max_height: int = 2400):
             image.save(path, quality=90)
             break
         except OSError:
+            # Very rare occasions the image acts up and this setting needs to be applied, see
+            # https://uploads.mangadex.org/data/7bc61df1775d46f3cd9fd7501860f09b/\
+            # 16-5dd67abf9dca4240d20eebe3f4780b1ffba5a9c90b9067def5b9f4806eb93f25.png
+            ImageFile.LOAD_TRUNCATED_IMAGES = True
             continue
+
     else:
         raise OSError("Failed to download and save image!")
 
