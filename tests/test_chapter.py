@@ -7,48 +7,67 @@ import mangadex_dlz
 
 
 class TestChapter(unittest.TestCase):
-    def test_get_chapter_info(self):
-        expected_keys = ["id", "series_id", "chapter", "volume", "title"]
-        chapter_info = mangadex_dlz.chapter.get_chapter_info(
-            "e86ec2c4-c5e4-4710-bfaa-7604f00939c7"
+    def test_get_series_id_from_series_relationships(self):
+        relationships = [
+            {"id": "alpha", "type": "beta"},
+            {"id": "charlie", "type": "manga"},
+        ]
+
+        self.assertEqual(
+            mangadex_dlz.chapter.get_series_id_from_series_relationships(relationships),
+            "charlie",
         )
 
-        self.assertEqual(len(chapter_info), 5)
+    def test_get_series_id_from_series_relationships_no_manga(self):
+        relationships = [
+            {"id": "alpha", "type": "beta"},
+            {"id": "charlie", "type": "delta"},
+        ]
 
-        self.assertTrue(all(key in chapter_info for key in expected_keys))
-
-        self.assertIsInstance(chapter_info.get("id"), str)
-        self.assertIsInstance(chapter_info.get("series_id"), str)
-        self.assertIsInstance(chapter_info.get("chapter"), float)
-        self.assertIsInstance(chapter_info.get("volume"), int)
-        self.assertIsInstance(chapter_info.get("title"), str)
-
-    def test_get_chapter_info_bad_id(self):
-        with self.assertRaises(requests.RequestException):
-            _ = mangadex_dlz.chapter.get_chapter_info(
-                "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
-            )
-
-    def test_get_chapter_info_bad_key(self):
-        warnings.warn("Test not implemented")
-
-    def test_get_chapter_image_urls(self):
-        chapter_urls = mangadex_dlz.chapter.get_chapter_image_urls(
-            "e86ec2c4-c5e4-4710-bfaa-7604f00939c7"
+        self.assertIsNone(
+            mangadex_dlz.chapter.get_series_id_from_series_relationships(relationships)
         )
 
-        self.assertGreater(len(chapter_urls), 0)
-        for url in chapter_urls:
-            self.assertIsInstance(url, str)
+    def test_parse_chapter_info(self):
+        attributes = {"volume": "1", "chapter": "1.5", "title": "alpha"}
+        expected_info = {
+            "id": "beta",
+            "series_id": "charlie",
+            "chapter": 1.5,
+            "volume": 1,
+            "title": "alpha",
+        }
 
-    def test_get_chapter_image_urls_bad_id(self):
-        with self.assertRaises(requests.RequestException):
-            _ = mangadex_dlz.chapter.get_chapter_image_urls(
-                "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
-            )
+        self.assertDictEqual(
+            mangadex_dlz.chapter.parse_chapter_info("beta", "charlie", attributes),
+            expected_info,
+        )
 
-    def test_get_chapter_image_urls_bad_data(self):
-        warnings.warn("Test not implemented")
+    def test_parse_chapter_info_bad_chapter(self):
+        attributes = {"volume": "1", "chapter": "delta", "title": "alpha"}
+
+        with self.assertRaises(ValueError):
+            mangadex_dlz.chapter.parse_chapter_info("beta", "charlie", attributes)
+
+    def test_parse_chapter_info_bad_volume(self):
+        attributes = {"volume": "delta", "chapter": "1.5", "title": "alpha"}
+
+        with self.assertRaises(ValueError):
+            mangadex_dlz.chapter.parse_chapter_info("beta", "charlie", attributes)
+
+    def test_parse_chapter_image_urls(self):
+        base_url = "alpha"
+        chapter_hash = "beta"
+        chapter_images = ["charlie", "delta"]
+
+        expected_urls = ["alpha/data/beta/charlie", "alpha/data/beta/delta"]
+
+        self.assertListEqual(
+            mangadex_dlz.chapter.parse_chapter_image_urls(
+                base_url, chapter_hash, chapter_images
+            ),
+            expected_urls,
+        )
 
     def test_get_chapter_directory(self):
         self.assertEqual(
@@ -62,15 +81,6 @@ class TestChapter(unittest.TestCase):
     def test_get_chapter_directory_nan(self):
         with self.assertRaises(TypeError):
             _ = mangadex_dlz.chapter.get_chapter_directory("foobar", "bar")
-
-    def test_download_chapter_image(self):
-        warnings.warn("Test not implemented")
-
-    def test_download_chapter(self):
-        warnings.warn("Test not implemented")
-
-    def test_get_chapter_cache(self):
-        warnings.warn("Test not implmented")
 
     def test_get_ids_not_excluded_chapters(self):
         grouped_ids = [["a", "b"], ["c", "d"], ["e", "f"]]

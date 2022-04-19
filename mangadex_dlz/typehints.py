@@ -41,3 +41,11 @@ class ReportInfo(TypedDict):
 
 class ComicInfo(TypedDict):
     """Typehint for comicinfo data structure"""
+
+    Title: str
+    Series: str
+    Summary: str
+    Number: float
+    Year: int
+    Writer: str
+    Manga: str
