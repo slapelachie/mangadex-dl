@@ -51,6 +51,12 @@ def get_args() -> argparse.ArgumentParser:
         action="store_true",
         help="Download only the covers for the chapters of the given series/chapter",
     )
+    arg.add_argument(
+        "--report",
+        action="store_true",
+        help="Allow telementary to mangadex for reporting the health of the used servers, "
+        "may increase download times",
+    )
     arg.add_argument("url", help="URL of series/chapter to download", nargs="?")
 
     return arg
@@ -80,10 +86,8 @@ def parse_args(parser: argparse.ArgumentParser):
 
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
-        logger.info("Set logger to debug level")
     elif args.verbose:
         logging.basicConfig(level=logging.INFO)
-        logger.info("Set logger to info level")
 
     mangadex = MangaDexDL(
         os.path.realpath(args.cache_file),
@@ -91,6 +95,7 @@ def parse_args(parser: argparse.ArgumentParser):
         override=args.override,
         download_cover=args.download_cover,
         progress_bars=args.progress,
+        reporting=args.report,
     )
 
     if args.download_chapter_covers:

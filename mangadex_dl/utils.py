@@ -18,10 +18,13 @@ from PIL import Image, ImageFile
 
 from mangadex_dl.typehints import ChapterInfo, SeriesInfo
 from mangadex_dl.logger_utils import TqdmLoggingHandler
+from mangadex_dl.mangadex_report import MangadexReporter
 
 logger = logging.getLogger(__name__)
 logger.addHandler(TqdmLoggingHandler())
 logger.propagate = False
+
+reporter = MangadexReporter()
 
 
 def is_url(url: str) -> bool:
@@ -48,6 +51,7 @@ def get_mangadex_request(url: str) -> requests.Response:
 
     Arguments:
         url (str): the url to perform the request on
+        rate (int): the rate at which requests can be made measured in images per minute
 
     Returns:
         (requests.Response): the response from the server
@@ -71,7 +75,10 @@ def get_mangadex_request(url: str) -> requests.Response:
     if response.status_code != 200:
         response.raise_for_status()
 
-    sleep(0.5)
+    rate_limit = int(response.headers.get("x-ratelimit-limit") or 0)
+    if rate_limit != 0:
+        sleep(60 / rate_limit)
+
     return response
 
 
@@ -83,6 +90,7 @@ def get_mangadex_response(url: str) -> Dict:
 
     Arguments:
         url (str): the url to perform the request to
+        rate (int): the rate at which requests can be made
 
     Returns:
         (Dict?): the response in json format
@@ -164,7 +172,9 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
         ) from err
 
 
-def download_image(url: str, path: str, max_height: int = 2400):
+def download_image(
+    url: str, path: str, max_height: int = 2400, enable_reporting: bool = False
+):
     """
     Download the image from the given url to the specified path
     Image is converted to RGB, downscaled to a height of max_height pixels if it exceeds this
@@ -177,6 +187,7 @@ def download_image(url: str, path: str, max_height: int = 2400):
         url (str): the url of the mangadex chapter image (page)
         path (str): the output destination of the downloaded image
         max_height (int): the maximum height
+        enable_reporting (bool): if reports on server health should be sent
 
     Raises:
         OSError: if the image has any trouble saving or downloading
@@ -192,7 +203,7 @@ def download_image(url: str, path: str, max_height: int = 2400):
             )
 
         try:
-            image = get_image_data(url, max_height)
+            image = get_image_data(url, max_height, enable_reporting)
             if image is None:
                 continue
 
@@ -209,20 +220,36 @@ def download_image(url: str, path: str, max_height: int = 2400):
         raise OSError("Failed to download and save image!")
 
 
-def get_image_data(url: str, max_height: int) -> Image:
+def get_image_data(url: str, max_height: int, enable_reporting: bool) -> Image:
     """
     Get image data from URL in PIL.Image format
 
     Arguments:
         url (str): the url to get the image data from
         max_height (int): the maximum height of the image, downscaled if too tall
+        enable_reporting (bool): if reports on server health should be sent
 
     Returns:
         (Pil.Image.Image): the PIL image
     """
+    success = False
     try:
         response = get_mangadex_request(url)
+        success = True
     except (requests.HTTPError, requests.Timeout):
+        success = False
+    finally:
+        if enable_reporting:
+            report = {
+                "url": url,
+                "success": success,
+                "bytes": len(response.content),
+                "cached": response.headers.get("X-Cache") == "HIT",
+                "duration": int(response.elapsed.total_seconds() * 1000),
+            }
+            reporter.add_report(report)
+
+    if not success:
         return None
 
     image = Image.open(io.BytesIO(response.content))

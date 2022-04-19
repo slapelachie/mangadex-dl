@@ -27,3 +27,13 @@ class VolumeInfo(TypedDict):
 
     volume: str
     chapters: Dict
+
+
+class ReportInfo(TypedDict):
+    """typehint for mangadex reports"""
+
+    url: str
+    success: bool
+    bytes: int
+    cached: bool
+    duration: int

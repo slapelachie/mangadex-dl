@@ -2,7 +2,6 @@
 import os
 import json
 import logging
-import re
 from typing import List, Dict
 
 import tqdm
@@ -72,7 +71,11 @@ def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
     chapter_title = attributes.get("title", fallback_title)
     chapter_info["title"] = chapter_title or fallback_title
 
-    logger.info('Got info for "%s %s"', chapter_info["chapter"], chapter_info["title"])
+    logger.info(
+        'Got chapter information for "%s %s"',
+        chapter_info["chapter"],
+        chapter_info["title"],
+    )
 
     return chapter_info
 
@@ -124,6 +127,7 @@ def download_chapter(
     chapter: mangadex_dl.ChapterInfo,
     series: mangadex_dl.SeriesInfo,
     progress_bars: bool = False,
+    enable_reporting: bool = False,
 ):
     """
     Downloads all pages of a given chapter to the given output directory
@@ -134,6 +138,8 @@ def download_chapter(
             (see mangadex_dl.chapter.get_chapter_info)
         series (mangadex_dl.SeriesInfo): the series information
             (see mangadex_dl.series.get_series_info)
+        progress_bars (bool): if the progress bars should be enabled
+        enable_reporting (bool): if reports on server health should be sent
 
     Raises:
         KeyError: if one of the parsed dictionaries doesnt contain a required key
@@ -172,13 +178,12 @@ def download_chapter(
         ),
         start=1,
     ):
-        logger.info(
-            'Downloading page %i of chapter "%s %s"', i, chapter_number, chapter_title
-        )
         file_path = os.path.join(output_directory, f"{i:03}.jpg")
 
         try:
-            mangadex_dl.download_image(url, file_path)
+            mangadex_dl.download_image(
+                url, file_path, enable_reporting=enable_reporting
+            )
         except OSError as err:
             raise OSError from err
 

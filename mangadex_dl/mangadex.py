@@ -30,6 +30,7 @@ class MangaDexDL:
         override: bool = False,
         download_cover: bool = False,
         progress_bars: bool = False,
+        reporting: bool = False,
     ):
         """
         Arguments:
@@ -41,6 +42,7 @@ class MangaDexDL:
         self._override = override
         self._download_cover = download_cover
         self._progress_bars = progress_bars
+        self._reporting = reporting
 
         try:
             self._ensure_cache_file_exists()
@@ -64,7 +66,7 @@ class MangaDexDL:
 
     def _ensure_cache_file_exists(self):
         if not os.path.exists(self._cache_file_path):
-            logger.info("%s does not exist, creating it...", self._cache_file_path)
+            logger.debug("%s does not exist, creating it...", self._cache_file_path)
             os.makedirs(os.path.dirname(self._cache_file_path), exist_ok=True)
             try:
                 with open(self._cache_file_path, "w+", encoding="utf-8") as fout:
@@ -109,7 +111,7 @@ class MangaDexDL:
         chapter_number = chapter_info.get("chapter")
         chapter_title = chapter_info.get("title")
 
-        logger.info(
+        logger.debug(
             'Processing "%s" chapter "%s %s"',
             series_title,
             chapter_number,
@@ -130,6 +132,7 @@ class MangaDexDL:
                 chapter_info,
                 series_info,
                 progress_bars=self._progress_bars,
+                enable_reporting=self._reporting,
             )
         except (KeyError, OSError) as err:
             raise FailedImageError("Failed to download image!") from err
@@ -142,7 +145,7 @@ class MangaDexDL:
             except OSError as err:
                 raise err
 
-        logger.info(
+        logger.debug(
             "Creating %s.cbz",
             chapter_directory,
         )
@@ -187,7 +190,7 @@ class MangaDexDL:
             "jpg",
         )
 
-        logger.info("Getting volume images for %s", series_title)
+        logger.debug("Getting volume images for %s", series_title)
         volume_images = md_series.get_needed_volume_images(
             series_info.get("id"),
             chapters,
@@ -199,7 +202,7 @@ class MangaDexDL:
             ascii=True,
             desc="covers",
             disable=not self._progress_bars,
-            position=0,
+            position=1,
             leave=False,
         ):
             if not all(key in chapter for key in ["chapter", "volume", "title"]):
@@ -255,6 +258,7 @@ class MangaDexDL:
                 series_info,
                 self._output_directory,
                 volume_number=max(volume_numbers),
+                enable_reporting=self._reporting,
             )
         except (KeyError, OSError) as err:
             logger.exception(err)
@@ -281,7 +285,7 @@ class MangaDexDL:
         Arguments:
             series_id (str): the UUID of the mangadex series
         """
-        logger.info("Handling series with ID: %s", series_id)
+        logger.debug("Handling series with ID: %s", series_id)
 
         try:
             series_info = md_series.get_series_info(series_id)
@@ -290,7 +294,7 @@ class MangaDexDL:
             sys.exit(1)
 
         series_title = series_info.get("title")
-        logger.info("Got series information for %s (%s)", series_title, series_id)
+        logger.info("Got series information for %s", series_title)
 
         series_directory = os.path.join(
             self._output_directory, mangadex_dl.make_name_safe(series_title)
@@ -307,7 +311,7 @@ class MangaDexDL:
             logger.info("Downloading cover for %s...", series_title)
             self._download_series_cover(series_info, series_volumes)
 
-        logger.info("Getting chapters for %s (%s)", series_title, series_id)
+        logger.debug("Getting chapters for %s", series_title)
         chapters = self._get_pending_chapters_from_volumes(series_volumes)
 
         # Process all chapters
@@ -332,7 +336,7 @@ class MangaDexDL:
         Arguments:
             chapter_id (str): the UUID of the mangadex chapter
         """
-        logger.info("Handling chapter with ID: %s", chapter_id)
+        logger.debug("Handling chapter with ID: %s", chapter_id)
         try:
             chapter_info = md_chapter.get_chapter_info(chapter_id)
             series_info = md_series.get_series_info(chapter_info.get("series_id"))
