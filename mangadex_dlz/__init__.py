@@ -8,7 +8,7 @@ from mangadex_dlz.utils import (
     download_image,
     get_image_data,
     make_name_safe,
-    is_number,
+    create_comicinfo_json,
 )
 
 from mangadex_dlz.exceptions import BadChapterData, ComicInfoError, FailedImageError

@@ -1,2 +1,4 @@
 mangadex-dl/
+htmlcov/
 __pycache__
+.coverage

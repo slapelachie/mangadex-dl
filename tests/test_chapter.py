@@ -3,13 +3,13 @@ import warnings
 
 import requests
 
-import mangadex_dl
+import mangadex_dlz
 
 
 class TestChapter(unittest.TestCase):
     def test_get_chapter_info(self):
         expected_keys = ["id", "series_id", "chapter", "volume", "title"]
-        chapter_info = mangadex_dl.chapter.get_chapter_info(
+        chapter_info = mangadex_dlz.chapter.get_chapter_info(
             "e86ec2c4-c5e4-4710-bfaa-7604f00939c7"
         )
 
@@ -25,7 +25,7 @@ class TestChapter(unittest.TestCase):
 
     def test_get_chapter_info_bad_id(self):
         with self.assertRaises(requests.RequestException):
-            _ = mangadex_dl.chapter.get_chapter_info(
+            _ = mangadex_dlz.chapter.get_chapter_info(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )
 
@@ -33,7 +33,7 @@ class TestChapter(unittest.TestCase):
         warnings.warn("Test not implemented")
 
     def test_get_chapter_image_urls(self):
-        chapter_urls = mangadex_dl.chapter.get_chapter_image_urls(
+        chapter_urls = mangadex_dlz.chapter.get_chapter_image_urls(
             "e86ec2c4-c5e4-4710-bfaa-7604f00939c7"
         )
 
@@ -43,7 +43,7 @@ class TestChapter(unittest.TestCase):
 
     def test_get_chapter_image_urls_bad_id(self):
         with self.assertRaises(requests.RequestException):
-            _ = mangadex_dl.chapter.get_chapter_image_urls(
+            _ = mangadex_dlz.chapter.get_chapter_image_urls(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )
 
@@ -52,16 +52,16 @@ class TestChapter(unittest.TestCase):
 
     def test_get_chapter_directory(self):
         self.assertEqual(
-            mangadex_dl.chapter.get_chapter_directory(2.0, "bar"), "002 bar"
+            mangadex_dlz.chapter.get_chapter_directory(2.0, "bar"), "002 bar"
         )
         self.assertEqual(
-            mangadex_dl.chapter.get_chapter_directory(2.5, "bar"),
+            mangadex_dlz.chapter.get_chapter_directory(2.5, "bar"),
             "002.5 bar",
         )
 
     def test_get_chapter_directory_nan(self):
         with self.assertRaises(TypeError):
-            _ = mangadex_dl.chapter.get_chapter_directory("foobar", "bar")
+            _ = mangadex_dlz.chapter.get_chapter_directory("foobar", "bar")
 
     def test_download_chapter_image(self):
         warnings.warn("Test not implemented")
@@ -77,7 +77,7 @@ class TestChapter(unittest.TestCase):
         excluded_ids = ["c"]
 
         self.assertListEqual(
-            mangadex_dl.chapter.get_ids_not_excluded_chapters(
+            mangadex_dlz.chapter.get_ids_not_excluded_chapters(
                 grouped_ids, excluded_ids
             ),
             ["a", "e"],
@@ -88,7 +88,7 @@ class TestChapter(unittest.TestCase):
         excluded_ids = ["c", "f", "g", "k"]
 
         self.assertListEqual(
-            mangadex_dl.chapter.get_ids_matched(grouped_ids, excluded_ids), ["c", "f"]
+            mangadex_dlz.chapter.get_ids_matched(grouped_ids, excluded_ids), ["c", "f"]
         )
 
 

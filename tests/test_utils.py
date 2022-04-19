@@ -1,35 +1,72 @@
 import unittest
 import warnings
-import mangadex_dl
+from datetime import date
+
+import mangadex_dlz
 
 
 class TestUtils(unittest.TestCase):
+    def setUp(self):
+        self.chapter = {
+            "id": "alpha",
+            "series_id": "beta",
+            "chapter": 1.0,
+            "volume": 2,
+            "title": "charlie",
+        }
+        self.series = {
+            "id": "delta",
+            "title": "echo",
+            "description": "foxtrot",
+            "year": 2000,
+            "author": "golf",
+        }
+
+        self.expected_comicinfo = {
+            "Title": "charlie",
+            "Series": "echo",
+            "Summary": "foxtrot",
+            "Number": "1",
+            "Year": 2000,
+            "Writer": "golf",
+            "Manga": "YesAndRightToLeft",
+        }
+
     def test_is_url(self):
-        self.assertTrue(mangadex_dl.is_url("https://mangadex.org"))
-        self.assertTrue(mangadex_dl.is_url("https://www.google.com"))
-        self.assertFalse(mangadex_dl.is_url("./test/test.jpg"))
+        self.assertTrue(mangadex_dlz.is_url("https://mangadex.org"))
+        self.assertTrue(mangadex_dlz.is_url("https://www.google.com"))
+        self.assertFalse(mangadex_dlz.is_url("./test/test.jpg"))
 
-    def test_get_mangadex_request(self):
-        warnings.warn("Test not implemented")
+    def test_create_comicinfo_json(self):
+        self.assertDictEqual(
+            mangadex_dlz.create_comicinfo_json(self.chapter, self.series),
+            self.expected_comicinfo,
+        )
 
-    def test_get_mangadex_response(self):
-        warnings.warn("Test not implemented")
+    def test_create_comicinfo_json_float_chapter(self):
+        self.chapter["chapter"] = 1.5
+        self.expected_comicinfo["Number"] = "1.5"
 
-    def test_create_cbz(self):
-        warnings.warn("Test not implemented")
+        self.assertDictEqual(
+            mangadex_dlz.create_comicinfo_json(self.chapter, self.series),
+            self.expected_comicinfo,
+        )
 
-    def test_create_comicinfo(self):
-        warnings.warn("Test not implemented")
+    def test_create_comicinfo_json_no_year(self):
+        self.series["year"] = None
+        self.expected_comicinfo["Year"] = date.today().year
 
-    def test_download_image(self):
-        warnings.warn("Test not implemented")
+        self.assertDictEqual(
+            mangadex_dlz.create_comicinfo_json(self.chapter, self.series),
+            self.expected_comicinfo,
+        )
 
-    def test_get_image_data(self):
+    def test_downscale_if_too_small(self):
         warnings.warn("Test not implemented")
 
     def test_make_name_safe(self):
         self.assertEqual(
-            mangadex_dl.make_name_safe("!@#$%^&*()_+-=[]{}:;,<.>/?|\\ "),
+            mangadex_dlz.make_name_safe("!@#$%^&*()_+-=[]{}:;,<.>/?|\\ "),
             "____________-_________._____ ",
         )
 

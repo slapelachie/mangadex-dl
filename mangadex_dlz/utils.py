@@ -16,9 +16,10 @@ import requests
 from dict2xml import dict2xml
 from PIL import Image, ImageFile
 
-from mangadex_dlz.typehints import ChapterInfo, SeriesInfo
+from mangadex_dlz.typehints import ChapterInfo, SeriesInfo, ComicInfo
 from mangadex_dlz.logger_utils import TqdmLoggingHandler
 from mangadex_dlz.mangadex_report import MangadexReporter
+from mangadex_dlz.exceptions import FailedImageError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(TqdmLoggingHandler())
@@ -125,6 +126,30 @@ def create_cbz(chapter_directory: str):
         ) from err
 
 
+def create_comicinfo_json(chapter: ChapterInfo, series: SeriesInfo) -> ComicInfo:
+    """
+    Creates the json format for the comicinfo, if the year is None then it is set to the current
+    year
+
+    Arguments:
+        chapter (ChapterInfo): the chapter information (see mangadex_dlz.chapter.get_chapter_info)
+        series (SeriesInfo): the series information (see mangadex_dlz.series.get_series_info)
+    """
+    series_year = series.get("year", date.today().year) or date.today().year
+    chapter_number = f'{chapter["chapter"]:.1f}'.rstrip("0").rstrip(".")
+
+    data = {
+        "Title": chapter["title"],
+        "Series": series["title"],
+        "Summary": series["description"],
+        "Number": chapter_number,
+        "Year": series_year,
+        "Writer": series["author"],
+        "Manga": "YesAndRightToLeft",
+    }
+    return data
+
+
 def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: SeriesInfo):
     """
     Creates a ComicInfo file for the chapter, only tested with Komago, so I have no idea if this
@@ -139,26 +164,7 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
         KeyError: if one of the keys in the parsed dictionary does not exist
         OSError: if the ComicInfo.xml file could not be created
     """
-    if not all(key in chapter for key in ["title", "chapter"]) or not all(
-        key in series for key in ["title", "description", "year", "author"]
-    ):
-        raise KeyError(
-            "One of the needed fields in the parsed dictionaries is not valid!"
-        )
-
-    series_year = series.get("year", date.today().year) or date.today().year
-
-    data = {
-        "ComicInfo": {
-            "Title": chapter.get("title"),
-            "Series": series.get("title"),
-            "Summary": series.get("description"),
-            "Number": f'{chapter.get("chapter"):.1f}'.rstrip("0").rstrip("."),
-            "Year": series_year,
-            "Writer": series.get("author"),
-            "Manga": "YesAndRightToLeft",
-        }
-    }
+    data = {"ComicInfo": create_comicinfo_json(chapter, series)}
     xml = dict2xml(data)
 
     try:
@@ -220,6 +226,26 @@ def download_image(
         raise OSError("Failed to download and save image!")
 
 
+def downscale_if_too_tall(image: Image.Image, max_height: int) -> Image.Image:
+    """
+    Downscales the image to the max_height if the image is too big
+
+    Arguments:
+        image (PIL.Image.Image): the image to downscale if too tall
+        max_height (int): the max height before downscaling
+
+    Returns:
+        (PIL.Image.Image): the (downscaled) image
+    """
+    width, height = image.size
+    if height > max_height:
+        ratio = width / height
+        new_width = floor(ratio * max_height)
+        return image.resize((new_width, max_height), Image.BICUBIC)
+
+    return image
+
+
 def get_image_data(url: str, max_height: int, enable_reporting: bool) -> Image:
     """
     Get image data from URL in PIL.Image format
@@ -231,6 +257,9 @@ def get_image_data(url: str, max_height: int, enable_reporting: bool) -> Image:
 
     Returns:
         (Pil.Image.Image): the PIL image
+
+    Raises:
+        (mangadex_dl.exceptions.FailedImageException): if the image could not be downloaded
     """
     success = False
     try:
@@ -250,22 +279,15 @@ def get_image_data(url: str, max_height: int, enable_reporting: bool) -> Image:
             reporter.add_report(report)
 
     if not success:
-        return None
+        raise FailedImageError("The image could not be successfully downloaded")
 
+    logger.debug(
+        'Downloading image from "%s"',
+        url,
+    )
     image = Image.open(io.BytesIO(response.content))
     image = image.convert("RGB")
-
-    # Downscale if too big
-    width, height = image.size
-    if height > max_height:
-        logger.debug(
-            'Image height from "%s" is greater than %d pixels, downscaling...',
-            url,
-            max_height,
-        )
-        ratio = width / height
-        new_width = floor(ratio * max_height)
-        image = image.resize((new_width, max_height), Image.BICUBIC)
+    image = downscale_if_too_tall(image, max_height)
 
     return image
 
@@ -276,12 +298,3 @@ def make_name_safe(name: str) -> str:
     with a _ (underscore) from the name to make it useable for folder and file names
     """
     return re.sub(r"[^\w\-_\. ]", "_", name)
-
-
-def is_number(number: str):
-    """Checks if the supplied string is a number"""
-    try:
-        float(number)
-        return True
-    except ValueError:
-        return False

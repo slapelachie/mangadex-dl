@@ -37,3 +37,7 @@ class ReportInfo(TypedDict):
     bytes: int
     cached: bool
     duration: int
+
+
+class ComicInfo(TypedDict):
+    """Typehint for comicinfo data structure"""

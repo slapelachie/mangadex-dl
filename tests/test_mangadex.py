@@ -1,6 +1,6 @@
 import unittest
 import warnings
-from mangadex_dl import mangadex
+from mangadex_dlz import mangadex
 
 
 class TestMangadexFunctions(unittest.TestCase):

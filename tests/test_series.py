@@ -4,13 +4,13 @@ import json
 
 import requests
 
-import mangadex_dl
+import mangadex_dlz
 
 
 class TestSeries(unittest.TestCase):
     def test_get_series_info(self):
         expected_keys = ["id", "title", "description", "year", "author"]
-        series_info = mangadex_dl.series.get_series_info(
+        series_info = mangadex_dlz.series.get_series_info(
             "a96676e5-8ae2-425e-b549-7f15dd34a6d8"
         )
 
@@ -26,7 +26,7 @@ class TestSeries(unittest.TestCase):
 
     def test_get_seroes_info_bad_id(self):
         with self.assertRaises(requests.RequestException):
-            _ = mangadex_dl.series.get_series_info(
+            _ = mangadex_dlz.series.get_series_info(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )
 
@@ -39,7 +39,7 @@ class TestSeries(unittest.TestCase):
     def test_get_grouped_chapter_ids_from_volumes(self):
         volumes = {"1": {"1": ["a", "e"], "2": ["b"]}, "2": {"3": ["c"], "4": ["d"]}}
         self.assertListEqual(
-            mangadex_dl.series.get_grouped_chapter_ids_from_volumes(volumes),
+            mangadex_dlz.series.get_grouped_chapter_ids_from_volumes(volumes),
             [["a", "e"], ["b"], ["c"], ["d"]],
         )
 
@@ -47,7 +47,7 @@ class TestSeries(unittest.TestCase):
         with open("tests/assets/mangadex_volume.json", "r", encoding="utf-8") as fin:
             mangadex_volumes = json.load(fin)
             self.assertDictEqual(
-                mangadex_dl.series.process_mangadex_volumes(mangadex_volumes),
+                mangadex_dlz.series.process_mangadex_volumes(mangadex_volumes),
                 {
                     "1": {
                         "1": [
@@ -63,7 +63,7 @@ class TestSeries(unittest.TestCase):
                 },
             )
 
-        _ = mangadex_dl.series.process_mangadex_volumes(
+        _ = mangadex_dlz.series.process_mangadex_volumes(
             {
                 "1": {
                     "volume": "1",
@@ -76,11 +76,11 @@ class TestSeries(unittest.TestCase):
         )
 
     def test_process_mangadex_volumes_empty(self):
-        self.assertDictEqual(mangadex_dl.series.process_mangadex_volumes({}), {})
+        self.assertDictEqual(mangadex_dlz.series.process_mangadex_volumes({}), {})
 
     def test_process_mangadex_volumes_empty_volume(self):
         self.assertDictEqual(
-            mangadex_dl.series.process_mangadex_volumes(
+            mangadex_dlz.series.process_mangadex_volumes(
                 {"1": {"volume": "1", "count": 2, "chapters": {}}}
             ),
             {},
@@ -88,13 +88,13 @@ class TestSeries(unittest.TestCase):
 
     def test_process_mangadex_volumes_no_volume(self):
         with self.assertRaises(KeyError):
-            _ = mangadex_dl.series.process_mangadex_volumes(
+            _ = mangadex_dlz.series.process_mangadex_volumes(
                 {"1": {"count": 2, "chapters": {}}}
             )
 
     def test_process_mangadex_volumes_no_chapters(self):
         with self.assertRaises(KeyError):
-            _ = mangadex_dl.series.process_mangadex_volumes(
+            _ = mangadex_dlz.series.process_mangadex_volumes(
                 {
                     "1": {
                         "volume": "1",
@@ -105,7 +105,7 @@ class TestSeries(unittest.TestCase):
 
     def test_process_mangadex_volumes_no_chapter(self):
         with self.assertRaises(KeyError):
-            _ = mangadex_dl.series.process_mangadex_volumes(
+            _ = mangadex_dlz.series.process_mangadex_volumes(
                 {
                     "1": {
                         "volume": "1",
@@ -117,7 +117,7 @@ class TestSeries(unittest.TestCase):
 
     def test_process_mangadex_volumes_no_id(self):
         with self.assertRaises(KeyError):
-            _ = mangadex_dl.series.process_mangadex_volumes(
+            _ = mangadex_dlz.series.process_mangadex_volumes(
                 {
                     "1": {
                         "volume": "1",
@@ -129,7 +129,7 @@ class TestSeries(unittest.TestCase):
 
     def test_process_mangadex_volumes_no_others(self):
         with self.assertRaises(KeyError):
-            _ = mangadex_dl.series.process_mangadex_volumes(
+            _ = mangadex_dlz.series.process_mangadex_volumes(
                 {
                     "1": {
                         "volume": "1",

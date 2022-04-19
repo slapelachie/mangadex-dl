@@ -1,15 +1,15 @@
-# mangadex-dl
+# mangadex-dlz
 
 A command to download from MangaDex and archive it as a `CBZ` with an included `ComicInfo.xml` file
 
 ## Usage
-To get the usage for this command, use `$ mangadex-dl --help`, the output matches the following:
+To get the usage for this command, use `$ mangadex-dlz --help`, the output matches the following:
 
 ```
-usage: mangadex-dl [-h] [--version] [--progress] [--debug] [-v]
-                   [-o OUT_DIRECTORY] [--cache-file CACHE_FILE] [--override]
-                   [--download-cover] [--download-chapter-covers]
-                   [url]
+usage: mangadex-dlz [-h] [--version] [--progress] [--debug] [-v]
+                    [-o OUT_DIRECTORY] [--cache-file CACHE_FILE] [--override]
+                    [--download-cover] [--download-chapter-covers] [--report]
+                    [url]
 
 Download mangadex manga from the command line
 
@@ -30,17 +30,17 @@ options:
   --download-chapter-covers
                         Download only the covers for the chapters of the given
                         series/chapter
+  --report              Allow telementary to mangadex for reporting the health
+                        of the used servers, may increase download times
 ```
 
 ## Installation
 
 ``` sh
-$ git clone https://github.com/slapelachie/mangadex-dl
-$ cd mangadex-dl
+$ git clone https://github.com/slapelachie/mangadex-dlz
+$ cd mangadex-dlz
 $ pip install --user .
 ```
 
 ## TODO
-- Implement tests
-- Add tags for comicinfo
-- Possibly rename to mangadex-dlz for clarity
+See [here](https://github.com/slapelachie/mangadex-dlz/projects/)
