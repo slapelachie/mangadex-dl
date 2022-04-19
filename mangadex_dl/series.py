@@ -192,7 +192,6 @@ def download_cover(
     series_info: mangadex_dl.SeriesInfo,
     output_directory: str,
     volume_number: int = None,
-    enable_reporting: bool = False,
 ):
     """
     Downloads the cover to the series in the specified output directory
@@ -228,9 +227,7 @@ def download_cover(
     cover_path = os.path.join(output_directory, f"{series_title}/cover.jpg")
 
     try:
-        mangadex_dl.download_image(
-            cover_url, cover_path, 1024, enable_reporting=enable_reporting
-        )
+        mangadex_dl.download_image(cover_url, cover_path, 1024)
     except OSError as err:
         raise OSError("Failed to download and save cover image!") from err
 
@@ -381,6 +378,7 @@ def get_needed_volume_images(
                 cached_volume_images[volume_number] = mangadex_dl.get_image_data(
                     f"https://uploads.mangadex.org/covers/{series_id}/{file_name}.512.jpg",
                     512,
+                    enable_reporting=False,
                 )
             except ValueError:
                 continue

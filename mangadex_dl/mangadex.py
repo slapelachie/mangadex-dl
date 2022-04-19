@@ -258,7 +258,6 @@ class MangaDexDL:
                 series_info,
                 self._output_directory,
                 volume_number=max(volume_numbers),
-                enable_reporting=self._reporting,
             )
         except (KeyError, OSError) as err:
             logger.exception(err)
