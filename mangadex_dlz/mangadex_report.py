@@ -6,8 +6,8 @@ from time import time, sleep
 import requests
 import tqdm
 
-from mangadex_dl.typehints import ReportInfo
-from mangadex_dl.logger_utils import TqdmLoggingHandler
+from mangadex_dlz.typehints import ReportInfo
+from mangadex_dlz.logger_utils import TqdmLoggingHandler
 
 logger = logging.getLogger(__name__)
 logger.addHandler(TqdmLoggingHandler())

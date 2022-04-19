@@ -7,14 +7,14 @@ from typing import List, Dict
 import tqdm
 from requests import HTTPError, Timeout, RequestException
 
-import mangadex_dl
+import mangadex_dlz
 
 logger = logging.getLogger(__name__)
-logger.addHandler(mangadex_dl.TqdmLoggingHandler())
+logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
 logger.propagate = False
 
 
-def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
+def get_chapter_info(chapter_id: str) -> mangadex_dlz.ChapterInfo:
     """
     Gets the related info of the given chapter
 
@@ -36,7 +36,7 @@ def get_chapter_info(chapter_id: str) -> mangadex_dl.ChapterInfo:
     chapter_info = {"id": chapter_id}
 
     try:
-        response = mangadex_dl.get_mangadex_response(
+        response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/chapter/{chapter_id}"
         )
     except (HTTPError, Timeout) as err:
@@ -96,7 +96,7 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
     chapter_urls = []
 
     try:
-        response = mangadex_dl.get_mangadex_response(
+        response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/at-home/server/{chapter_id}"
         )
     except (HTTPError, Timeout) as err:
@@ -105,7 +105,7 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
     # Get the image path data
     chapter_image_data = response.get("chapter", {}).get("data")
     if chapter_image_data is None:
-        raise mangadex_dl.BadChapterData("Could not find chapter URLs")
+        raise mangadex_dlz.BadChapterData("Could not find chapter URLs")
 
     # Create a url from the given data
     for chapter_image in chapter_image_data:
@@ -113,7 +113,7 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
         chapter_hash = response.get("chapter", {}).get("hash")
 
         if base_url is None or chapter_hash is None:
-            raise mangadex_dl.BadChapterData(
+            raise mangadex_dlz.BadChapterData(
                 f"Chapter {chapter_id} URL could not be retrieved"
             )
 
@@ -124,8 +124,8 @@ def get_chapter_image_urls(chapter_id: str) -> List[str]:
 
 def download_chapter(
     output_directory: str,
-    chapter: mangadex_dl.ChapterInfo,
-    series: mangadex_dl.SeriesInfo,
+    chapter: mangadex_dlz.ChapterInfo,
+    series: mangadex_dlz.SeriesInfo,
     progress_bars: bool = False,
     enable_reporting: bool = False,
 ):
@@ -134,10 +134,10 @@ def download_chapter(
 
     Arguments:
         output_directory (str): where to store the images
-        chapter (mangadex_dl.ChapterInfo): the chapter information
-            (see mangadex_dl.chapter.get_chapter_info)
-        series (mangadex_dl.SeriesInfo): the series information
-            (see mangadex_dl.series.get_series_info)
+        chapter (mangadex_dlz.ChapterInfo): the chapter information
+            (see mangadex_dlz.chapter.get_chapter_info)
+        series (mangadex_dlz.SeriesInfo): the series information
+            (see mangadex_dlz.series.get_series_info)
         progress_bars (bool): if the progress bars should be enabled
         enable_reporting (bool): if reports on server health should be sent
 
@@ -181,7 +181,7 @@ def download_chapter(
         file_path = os.path.join(output_directory, f"{i:03}.jpg")
 
         try:
-            mangadex_dl.download_image(
+            mangadex_dlz.download_image(
                 url, file_path, enable_reporting=enable_reporting
             )
         except OSError as err:
@@ -227,7 +227,7 @@ def get_chapter_directory(chapter_number: float, chapter_title: str) -> str:
         raise TypeError("Given chapter number is NaN")
 
     # Remove non-friendly file characters
-    chapter_title = mangadex_dl.make_name_safe(chapter_title)
+    chapter_title = mangadex_dlz.make_name_safe(chapter_title)
 
     return (f"{chapter_number:05.1f}").rstrip("0").rstrip(".") + f" {chapter_title}"
 

@@ -4,8 +4,8 @@ import argparse
 import sys
 import logging
 
-from mangadex_dl import __version__, __copyright__
-from mangadex_dl import MangaDexDL, TqdmLoggingHandler
+from mangadex_dlz import __version__, __copyright__
+from mangadex_dlz import MangaDexDL, TqdmLoggingHandler
 
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,5 @@
 """Stop the warning"""
-from mangadex_dl.utils import (
+from mangadex_dlz.utils import (
     is_url,
     get_mangadex_request,
     get_mangadex_response,
@@ -11,10 +11,10 @@ from mangadex_dl.utils import (
     is_number,
 )
 
-from mangadex_dl.exceptions import BadChapterData, ComicInfoError, FailedImageError
-from mangadex_dl.typehints import ChapterInfo, SeriesInfo, VolumeInfo
-from mangadex_dl.logger_utils import TqdmLoggingHandler
-from mangadex_dl.mangadex import MangaDexDL
+from mangadex_dlz.exceptions import BadChapterData, ComicInfoError, FailedImageError
+from mangadex_dlz.typehints import ChapterInfo, SeriesInfo, VolumeInfo
+from mangadex_dlz.logger_utils import TqdmLoggingHandler
+from mangadex_dlz.mangadex import MangaDexDL
 
 __version__ = "1.0.0a0"
 __author__ = "slapelachie"

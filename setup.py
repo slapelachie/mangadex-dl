@@ -4,7 +4,7 @@ from setuptools import setup
 LONG_DESC = open("README.md").read()
 
 setup(
-    name="mangadex_dl",
+    name="mangadex_dlz",
     version="1.0.0a0",
     description="Downloader and archiver for mangadex",
     long_description_content_type="text/markdown",
@@ -17,12 +17,12 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3.10",
     ],
-    url="http://github.com/slapelachie/mangadex-dl",
+    url="http://github.com/slapelachie/mangadex-dlz",
     author="slapelachie",
     author_email="lslape@slapelachie.xyz",
     license="GPLv2",
-    packages=["mangadex_dl"],
-    entry_points={"console_scripts": ["mangadex-dl=mangadex_dl.__main__:main"]},
+    packages=["mangadex_dlz"],
+    entry_points={"console_scripts": ["mangadex-dlz=mangadex_dlz.__main__:main"]},
     install_requires=["Pillow>=9.1.0", "dict2xml", "requests", "tqdm"],
     zip_safe=False,
 )

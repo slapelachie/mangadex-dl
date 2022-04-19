@@ -10,13 +10,13 @@ from typing import List, Tuple, Dict
 import tqdm
 from requests import RequestException
 
-import mangadex_dl
-from mangadex_dl import ComicInfoError, FailedImageError
-from mangadex_dl import series as md_series
-from mangadex_dl import chapter as md_chapter
+import mangadex_dlz
+from mangadex_dlz import ComicInfoError, FailedImageError
+from mangadex_dlz import series as md_series
+from mangadex_dlz import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
-logger.addHandler(mangadex_dl.TqdmLoggingHandler())
+logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
 logger.propagate = False
 
 
@@ -97,8 +97,8 @@ class MangaDexDL:
 
     def _process_chapter(
         self,
-        chapter_info: mangadex_dl.ChapterInfo,
-        series_info: mangadex_dl.SeriesInfo,
+        chapter_info: mangadex_dlz.ChapterInfo,
+        series_info: mangadex_dlz.SeriesInfo,
     ):
         if "title" not in series_info or not all(
             key in chapter_info for key in ["chapter", "title", "id"]
@@ -121,7 +121,7 @@ class MangaDexDL:
         chapter_directory = os.path.join(
             self._output_directory,
             os.path.join(
-                mangadex_dl.make_name_safe(series_title),
+                mangadex_dlz.make_name_safe(series_title),
                 md_chapter.get_chapter_directory(float(chapter_number), chapter_title),
             ),
         )
@@ -151,13 +151,13 @@ class MangaDexDL:
         )
 
         try:
-            mangadex_dl.create_comicinfo(chapter_directory, chapter_info, series_info)
+            mangadex_dlz.create_comicinfo(chapter_directory, chapter_info, series_info)
         except (KeyError, OSError) as err:
             shutil.rmtree(chapter_directory)
             raise ComicInfoError("Failed to create ComicInfo.xml!") from err
 
         try:
-            mangadex_dl.create_cbz(chapter_directory)
+            mangadex_dlz.create_cbz(chapter_directory)
         except (NotADirectoryError, OSError) as err:
             shutil.rmtree(chapter_directory)
             raise OSError("Failed to create archive!") from err
@@ -178,14 +178,14 @@ class MangaDexDL:
 
     def _download_chapter_covers(
         self,
-        series_info: mangadex_dl.SeriesInfo,
-        chapters: List[mangadex_dl.ChapterInfo],
+        series_info: mangadex_dlz.SeriesInfo,
+        chapters: List[mangadex_dlz.ChapterInfo],
     ):
         series_title = series_info.get("title")
         downloaded_chapter_images = md_series.get_downloaded_chapter_content(
             os.path.join(
                 self._output_directory,
-                mangadex_dl.make_name_safe(series_info.get("title")),
+                mangadex_dlz.make_name_safe(series_info.get("title")),
             ),
             "jpg",
         )
@@ -213,7 +213,7 @@ class MangaDexDL:
             chapter_directory = os.path.join(
                 self._output_directory,
                 os.path.join(
-                    mangadex_dl.make_name_safe(series_title),
+                    mangadex_dlz.make_name_safe(series_title),
                     md_chapter.get_chapter_directory(
                         chapter.get("chapter"), chapter.get("title")
                     ),
@@ -239,7 +239,9 @@ class MangaDexDL:
         return sorted(chapters, key=lambda d: d.get("chapter"))
 
     def _download_series_cover(
-        self, series_info: mangadex_dl.SeriesInfo, volumes: List[mangadex_dl.VolumeInfo]
+        self,
+        series_info: mangadex_dlz.SeriesInfo,
+        volumes: List[mangadex_dlz.VolumeInfo],
     ):
         if "title" not in series_info:
             logger.error("Could not get title from the parsed series info")
@@ -296,7 +298,7 @@ class MangaDexDL:
         logger.info("Got series information for %s", series_title)
 
         series_directory = os.path.join(
-            self._output_directory, mangadex_dl.make_name_safe(series_title)
+            self._output_directory, mangadex_dlz.make_name_safe(series_title)
         )
         os.makedirs(series_directory, exist_ok=True)
 
@@ -399,10 +401,13 @@ class MangaDexDL:
             sys.exit(1)
 
         series_directory = os.path.join(
-            self._output_directory, mangadex_dl.make_name_safe(series_info.get("title"))
+            self._output_directory,
+            mangadex_dlz.make_name_safe(series_info.get("title")),
         )
 
         os.makedirs(series_directory, exist_ok=True)
+
+        logger.info("Downloading chapter covers for %s...", series_info.get("title"))
         self._download_chapter_covers(series_info, chapters)
 
 
@@ -421,7 +426,7 @@ def is_mangadex_url(url: str) -> bool:
             r"^(?:http(s)?:\/\/)?mangadex\.org\/?",
             url,
         )
-        if mangadex_dl.is_url(url)
+        if mangadex_dlz.is_url(url)
         else False
     )
 

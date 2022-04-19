@@ -16,9 +16,9 @@ import requests
 from dict2xml import dict2xml
 from PIL import Image, ImageFile
 
-from mangadex_dl.typehints import ChapterInfo, SeriesInfo
-from mangadex_dl.logger_utils import TqdmLoggingHandler
-from mangadex_dl.mangadex_report import MangadexReporter
+from mangadex_dlz.typehints import ChapterInfo, SeriesInfo
+from mangadex_dlz.logger_utils import TqdmLoggingHandler
+from mangadex_dlz.mangadex_report import MangadexReporter
 
 logger = logging.getLogger(__name__)
 logger.addHandler(TqdmLoggingHandler())
@@ -132,8 +132,8 @@ def create_comicinfo(output_directory: str, chapter: ChapterInfo, series: Series
 
     Arguments:
         output_directory (str): the directory to save the file
-        chapter (ChapterInfo): the chapter information (see mangadex_dl.chapter.get_chapter_info)
-        series (SeriesInfo): the series information (see mangadex_dl.series.get_series_info)
+        chapter (ChapterInfo): the chapter information (see mangadex_dlz.chapter.get_chapter_info)
+        series (SeriesInfo): the series information (see mangadex_dlz.series.get_series_info)
 
     Raises:
         KeyError: if one of the keys in the parsed dictionary does not exist
@@ -258,7 +258,7 @@ def get_image_data(url: str, max_height: int, enable_reporting: bool) -> Image:
     # Downscale if too big
     width, height = image.size
     if height > max_height:
-        logger.info(
+        logger.debug(
             'Image height from "%s" is greater than %d pixels, downscaling...',
             url,
             max_height,

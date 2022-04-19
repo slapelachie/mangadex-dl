@@ -7,15 +7,15 @@ from typing import List, Dict
 from requests import HTTPError, Timeout, RequestException
 from PIL.Image import Image
 
-import mangadex_dl
-from mangadex_dl import chapter as md_chapter
+import mangadex_dlz
+from mangadex_dlz import chapter as md_chapter
 
 logger = logging.getLogger(__name__)
-logger.addHandler(mangadex_dl.TqdmLoggingHandler())
+logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
 logger.propagate = False
 
 
-def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
+def get_series_info(series_id: str) -> mangadex_dlz.SeriesInfo:
     """
     Get the information for the mangadex series.
 
@@ -39,7 +39,7 @@ def get_series_info(series_id: str) -> mangadex_dl.SeriesInfo:
     series_info = {"id": series_id}
 
     try:
-        response = mangadex_dl.get_mangadex_response(
+        response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/manga/{series_id}?includes[]=author&includes[]=cover_art"
         )
     except (HTTPError, Timeout) as err:
@@ -141,7 +141,7 @@ def get_volumes_from_series(series_id: str) -> Dict[str, Dict[str, List[str]]]:
         request.RequestException: if the response was unsuccessful
     """
     try:
-        response = mangadex_dl.get_mangadex_response(
+        response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/manga/{series_id}/aggregate?translatedLanguage[]=en"
         )
     except (HTTPError, Timeout) as err:
@@ -170,7 +170,7 @@ def get_grouped_chapter_ids_from_volumes(
     return [uuids for chapters in volumes.values() for uuids in chapters.values()]
 
 
-def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dl.SeriesInfo]:
+def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dlz.SeriesInfo]:
     """
     Gets all the chapters and their relevent information
 
@@ -189,7 +189,7 @@ def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dl.SeriesInfo]:
 
 
 def download_cover(
-    series_info: mangadex_dl.SeriesInfo,
+    series_info: mangadex_dlz.SeriesInfo,
     output_directory: str,
     volume_number: int = None,
 ):
@@ -197,7 +197,7 @@ def download_cover(
     Downloads the cover to the series in the specified output directory
 
     Arguments:
-        series_info (mangadex_dl.SeriesInfo): the series information
+        series_info (mangadex_dlz.SeriesInfo): the series information
         output_directory (str): the base directory where series are downloaded to
         volume_number (int): the volume cover to download
         enable_reporting (bool): if reports on server health should be sent
@@ -227,7 +227,7 @@ def download_cover(
     cover_path = os.path.join(output_directory, f"{series_title}/cover.jpg")
 
     try:
-        mangadex_dl.download_image(cover_url, cover_path, 1024)
+        mangadex_dlz.download_image(cover_url, cover_path, 1024)
     except OSError as err:
         raise OSError("Failed to download and save cover image!") from err
 
@@ -250,7 +250,7 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     cover_art_volumes = {}
 
     try:
-        response = mangadex_dl.get_mangadex_response(
+        response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}&limit=50&offset={offset}"
         )
     except (HTTPError, Timeout) as err:
@@ -330,7 +330,7 @@ def get_downloaded_chapter_content(
 
 def get_needed_volume_images(
     series_id: str,
-    chapters: List[mangadex_dl.ChapterInfo],
+    chapters: List[mangadex_dlz.ChapterInfo],
     excluded_chapters: List[float] = (),
 ) -> Dict[str, Image]:
     """
@@ -338,7 +338,7 @@ def get_needed_volume_images(
 
     Arguments:
         series_id (str): the series UUID the chapters originate from
-        chapters (List[mangadex_dl.ChapterInfo]): the list of chapters
+        chapters (List[mangadex_dlz.ChapterInfo]): the list of chapters
         excluded_chapters (List[float]): list of chapter numbers to not search for
 
     Returns:
@@ -375,7 +375,7 @@ def get_needed_volume_images(
 
         if volume_number not in cached_volume_images:
             try:
-                cached_volume_images[volume_number] = mangadex_dl.get_image_data(
+                cached_volume_images[volume_number] = mangadex_dlz.get_image_data(
                     f"https://uploads.mangadex.org/covers/{series_id}/{file_name}.512.jpg",
                     512,
                     enable_reporting=False,
