@@ -4,6 +4,7 @@ import os
 import re
 from typing import List, Dict
 
+import tqdm
 from requests import HTTPError, Timeout, RequestException
 from PIL.Image import Image
 
@@ -170,19 +171,29 @@ def get_grouped_chapter_ids_from_volumes(
     return [uuids for chapters in volumes.values() for uuids in chapters.values()]
 
 
-def get_series_chapters(chapter_ids: List[str]) -> List[mangadex_dlz.SeriesInfo]:
+def get_series_chapters(
+    chapter_ids: List[str], progress_bars: bool = False
+) -> List[mangadex_dlz.SeriesInfo]:
     """
     Gets all the chapters and their relevent information
 
     Arguments:
         series_id (str): the UUID of the mangadex series
+        progress_bars (bool): whether to enable progress bars
 
     Returns:
         (List[SeriesInfo]): returns the list of chapters and their relevent information
             (see get_series_info)
     """
     chapter_list = []
-    for chapter_id in chapter_ids:
+    for chapter_id in tqdm.tqdm(
+        chapter_ids,
+        ascii=True,
+        desc="Chapter Info",
+        disable=not progress_bars,
+        position=1,
+        leave=False,
+    ):
         chapter_list.append(md_chapter.get_chapter_info(chapter_id))
 
     return chapter_list

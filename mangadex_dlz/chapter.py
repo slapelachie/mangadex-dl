@@ -83,7 +83,7 @@ def parse_chapter_info(
     fallback_title = f"Chapter {chapter_number}"
     chapter_title = attributes["title"] or fallback_title
 
-    logger.info('Got chapter information for "%s %s"', chapter_number, chapter_title)
+    logger.debug('Got chapter information for "%s %s"', chapter_number, chapter_title)
 
     return {
         "id": chapter_id,

@@ -234,7 +234,7 @@ class MangaDexDL:
         chapter_ids = md_chapter.get_ids_not_excluded_chapters(
             grouped_ids, excluded_chapters
         )
-        chapters = md_series.get_series_chapters(chapter_ids)
+        chapters = md_series.get_series_chapters(chapter_ids, self._progress_bars)
 
         return sorted(chapters, key=lambda d: d.get("chapter"))
 
@@ -386,7 +386,9 @@ class MangaDexDL:
             pending_chapter_ids = md_chapter.get_ids_matched(
                 grouped_chapter_ids, self._get_chapters_from_cache()
             )
-            chapters = md_series.get_series_chapters(pending_chapter_ids)
+            chapters = md_series.get_series_chapters(
+                pending_chapter_ids, self._progress_bars
+            )
         elif mangadex_type == "chapter":
             try:
                 chapter_info = md_chapter.get_chapter_info(resource_id)

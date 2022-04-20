@@ -1,7 +1,4 @@
 import unittest
-import warnings
-
-import requests
 
 import mangadex_dlz
 
