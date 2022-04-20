@@ -10,6 +10,7 @@ from PIL.Image import Image
 
 import mangadex_dlz
 from mangadex_dlz import chapter as md_chapter
+from mangadex_dlz.exceptions import ExternalChapterError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
@@ -194,7 +195,11 @@ def get_series_chapters(
         position=1,
         leave=False,
     ):
-        chapter_list.append(md_chapter.get_chapter_info(chapter_id))
+        try:
+            chapter_list.append(md_chapter.get_chapter_info(chapter_id))
+        except ExternalChapterError:
+            logger.info("Chapter is from an external source, skipping...")
+            continue
 
     return chapter_list
 

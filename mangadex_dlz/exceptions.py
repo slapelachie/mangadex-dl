@@ -11,3 +11,7 @@ class FailedImageError(Exception):
 
 class ComicInfoError(Exception):
     """Raised when ComicInfo.xml fails to be created"""
+
+
+class ExternalChapterError(Exception):
+    """Raised when the chapter is externally sourced so it couldn't be downloaded"""

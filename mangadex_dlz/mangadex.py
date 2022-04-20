@@ -11,7 +11,11 @@ import tqdm
 from requests import RequestException
 
 import mangadex_dlz
-from mangadex_dlz import ComicInfoError, FailedImageError
+from mangadex_dlz.exceptions import (
+    ComicInfoError,
+    FailedImageError,
+    ExternalChapterError,
+)
 from mangadex_dlz import series as md_series
 from mangadex_dlz import chapter as md_chapter
 
@@ -344,6 +348,9 @@ class MangaDexDL:
         except (RequestException, ValueError, KeyError) as err:
             logger.exception(err)
             sys.exit(1)
+        except ExternalChapterError:
+            logger.info("Chapter is from an external source, skipping...")
+            return
 
         excluded_chapters = self._get_chapters_from_cache()
         if chapter_id not in excluded_chapters:
@@ -396,6 +403,9 @@ class MangaDexDL:
             except (RequestException, ValueError, KeyError) as err:
                 logger.exception(err)
                 sys.exit(1)
+            except ExternalChapterError:
+                logger.info("Chapter is from an external source, skipping...")
+                return
 
             chapters = [chapter_info]
         else:

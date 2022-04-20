@@ -8,6 +8,7 @@ import tqdm
 from requests import HTTPError, Timeout, RequestException
 
 import mangadex_dlz
+from mangadex_dlz.exceptions import ExternalChapterError
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
@@ -73,6 +74,10 @@ def parse_chapter_info(
     Raises:
         ValueError: if the chapter_number or volume number could not be extracted
     """
+
+    if attributes.get("externalUrl"):
+        raise ExternalChapterError("Chapter is externally sourced!")
+
     try:
         chapter_number = float(attributes["chapter"] or 0)
         volume_number = int(attributes["volume"] or 0)
