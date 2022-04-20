@@ -2,7 +2,8 @@
 import logging
 import os
 import re
-from typing import List, Dict
+from typing import List, Dict, Tuple
+from datetime import date
 
 import tqdm
 from requests import HTTPError, Timeout, RequestException
@@ -17,6 +18,123 @@ logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
 logger.propagate = False
 
 
+def get_series_mangadex(series_id: str) -> Tuple[Dict, Dict]:
+    """
+    Get's the series information from the mangadex api
+
+    Arguments:
+        series_id (str): the series uuid of the series to be downloaded
+
+    Returns:
+        (Tuple[Dict, Dict]): a tuple containing the attributes and relationships of the series
+
+    Raises:
+        requests.HTTPError: if the response fails
+    """
+    try:
+        response = mangadex_dlz.get_mangadex_response(
+            f"https://api.mangadex.org/manga/{series_id}?includes[]=author&includes[]=cover_art"
+        )
+    except (HTTPError, Timeout) as err:
+        raise RequestException from err
+
+    data = response["data"]
+
+    return (data["attributes"], data["relationships"])
+
+
+def get_series_title(title_info: Dict[str, str]) -> str:
+    """
+    Gets the series title from the title information retrieved from the mangadex series response
+
+    Arguments:
+        title_info (Dict[str, str]): the title info (see get_series_info())
+
+    Returns:
+        (str): the appropriate title
+        (None): if the title could not be found
+    """
+    for title_lang in ["en", "ja-ro", "ja"]:
+        series_title = title_info.get(title_lang)
+        if series_title is not None:
+            return series_title
+
+    return None
+
+
+def get_series_author(relationships: List[Dict]) -> str:
+    """
+    Get the series author from the relationships given by mangadex series
+
+    Arguments:
+        relationships (List[Dict]): the relationships (see get_series_info())
+
+    Returns:
+        (str): the name of the author, returns "No Author" if none was found
+    """
+    for relationship in relationships:
+        if relationship.get("type") == "author":
+            return relationship.get("attributes", {}).get("name") or "No Author"
+
+    return "No Author"
+
+
+def get_series_cover_art_url(series_id: str, relationships: List[Dict]) -> str:
+    """
+    Get the series cover art url from the relationships given by the series api call
+
+    Arguments:
+        series_id (str): the series id of the series from which the cover originates
+        relationships (List[Dict]): the relationships (see get_series_info())
+
+    Returns:
+        (str): the url to the cover
+        (None): if no cover url was found
+    """
+    for relationship in relationships:
+        if relationship.get("type") == "cover_art":
+            cover_art_file = relationship.get("attributes", {}).get("fileName")
+            if cover_art_file is None:
+                continue
+
+            return f"https://uploads.mangadex.org/covers/{series_id}/{cover_art_file}.512.jpg"
+
+    return None
+
+
+def parse_series_info(
+    series_id: str, attributes: Dict, relationships: Dict
+) -> mangadex_dlz.SeriesInfo:
+    """
+    Parses the information from the given attributes and relationships
+
+    Arguments:
+        series_id (str): the UUID of the mangadex series
+        attributes (Dict): the attributes from the series
+        relationships (Dict): the relationships of the series
+
+    Returns:
+        (mangadex_dl.exceptions.SeriesInfo): a dictionary containing all
+            the relevent information of the series
+
+    Raises:
+        ValueError: if the response does not contain the required data
+    """
+    title_info = attributes.get("title", {})
+    series_title = get_series_title(title_info)
+    if series_title is None:
+        raise ValueError("Could not get title information!")
+
+    return {
+        "id": series_id,
+        "title": series_title,
+        "description": attributes.get("description", {}).get("en", ""),
+        "year": int(attributes.get("year") or date.today().year),
+        "author": get_series_author(relationships),
+        "cover_art_url": get_series_cover_art_url(series_id, relationships),
+    }
+
+
 def get_series_info(series_id: str) -> mangadex_dlz.SeriesInfo:
     """
     Get the information for the mangadex series.
@@ -25,71 +143,11 @@ def get_series_info(series_id: str) -> mangadex_dlz.SeriesInfo:
         series_id (str): the UUID of the mangadex series
 
     Returns:
-        (Dict): a dictionary containing all the relevent information of the series. For example:
-            {"id": "a96676e5-8ae2-425e-b549-7f15dd34a6d8",
-             "title": "Komi-san wa Komyushou Desu.",
-             "description": "Komi-san is a beautiful and...", # truncated for readability
-             "year": 2016,
-             "author": "Oda Tomohito",
-             "cover_art_url": "https://uploads.mangadex.org/covers/..."} # truncated for readability
-
-    Raises:
-        ValueError: if the response does not contain the required data
-        requests.HTTPError: if the response fails
+        (mangadex_dl.exceptions.SeriesInfo): a dictionary containing all
+            the relevent information of the series
     """
-
-    series_info = {"id": series_id}
-
-    try:
-        response = mangadex_dlz.get_mangadex_response(
-            f"https://api.mangadex.org/manga/{series_id}?includes[]=author&includes[]=cover_art"
-        )
-    except (HTTPError, Timeout) as err:
-        raise RequestException from err
-
-    data = response.get("data").get("attributes", {})
-    relationships = response.get("data").get("relationships")
-
-    if relationships is None:
-        raise ValueError("Could not get needed information!")
-
-    title_info = data.get("title", {})
-    for title_lang in ["en", "ja-ro", "ja"]:
-        series_title = title_info.get(title_lang)
-        if series_title is not None:
-            series_info["title"] = series_title
-            break
-    else:
-        raise ValueError("Could not get title information!")
-
-    series_info["description"] = data.get("description", {}).get("en", "")
-    series_info["year"] = data.get("year", 1900)
-
-    # Get series author
-    for relationship in relationships:
-        if relationship.get("type") == "author":
-            series_info["author"] = relationship.get("attributes", {}).get(
-                "name", "No Author"
-            )
-            break
-    else:
-        series_info["author"] = "No Author"
-
-    for relationship in relationships:
-        if relationship.get("type") == "cover_art":
-            cover_art_file = relationship.get("attributes", {}).get("fileName")
-
-            if cover_art_file is None:
-                continue
-
-            series_info[
-                "cover_art_url"
-            ] = f"https://uploads.mangadex.org/covers/{series_id}/{cover_art_file}.512.jpg"
-            break
-    else:
-        series_info["cover_art_url"] = None
-
-    return series_info
+    attributes, relationships = get_series_mangadex(series_id)
+    return parse_series_info(series_id, attributes, relationships)
 
 
 def process_mangadex_volumes(mangadex_volumes: Dict) -> Dict[str, Dict[str, List[str]]]:
@@ -108,19 +166,11 @@ def process_mangadex_volumes(mangadex_volumes: Dict) -> Dict[str, Dict[str, List
     """
     volumes = {}
     for mangadex_volume in mangadex_volumes.values():
-        if not all(key in mangadex_volume for key in ["volume", "chapters"]):
-            raise KeyError("Could not get the required volume information")
-
-        volume_number = mangadex_volume.get("volume")
-        for mangadex_chapter in mangadex_volume.get("chapters").values():
-            if not all(key in mangadex_chapter for key in ["chapter", "id", "others"]):
-                raise KeyError(
-                    "Could not get the required chapter in volume information"
-                )
-
-            chapter_number = mangadex_chapter.get("chapter")
+        volume_number = mangadex_volume["volume"]
+        for mangadex_chapter in mangadex_volume["chapters"].values():
+            chapter_number = mangadex_chapter["chapter"]
             volumes.setdefault(volume_number, {})[chapter_number] = [
-                mangadex_chapter.get("id")
+                mangadex_chapter["id"]
             ]
 
             other_chapters = mangadex_chapter.get("others", [])
@@ -204,6 +254,27 @@ def get_series_chapters(
     return chapter_list
 
 
+def get_cover_url_volume(volume_number: int, series_id: str) -> str:
+    """
+    Get the volume cover for a specific volume number
+
+    Arguments:
+        volume_number (int): the volume number to fetch the cover for
+        series_id (str): the series id of the specific volume
+
+    Returns:
+        (str): the url to the volume cover
+    """
+    cover_art_volumes = get_cover_art_volumes(series_id)
+    if str(volume_number) in cover_art_volumes:
+        return (
+            f"https://uploads.mangadex.org/covers/{series_id}"
+            f"/{cover_art_volumes.get(str(volume_number))}.512.jpg"
+        )
+
+    return None
+
+
 def download_cover(
     series_info: mangadex_dlz.SeriesInfo,
     output_directory: str,
@@ -222,24 +293,13 @@ def download_cover(
         KeyError: if one of the fields in series_info is not valid
         OSError: if the cover image could not be downloaded or saved
     """
-
-    if not all(key in series_info for key in ["title", "cover_art_url", "id"]):
-        raise KeyError(
-            "One of the needed fields in the parsed dictionaries is not valid!"
-        )
-
-    series_id = series_info.get("id")
-    cover_url = series_info.get("cover_art_url")
+    series_id = series_info["id"]
+    cover_url = series_info["cover_art_url"]
 
     if volume_number is not None:
-        cover_art_volumes = get_cover_art_volumes(series_id)
-        if str(volume_number) in cover_art_volumes:
-            cover_url = (
-                f"https://uploads.mangadex.org/covers/{series_id}"
-                f"/{cover_art_volumes.get(str(volume_number))}.512.jpg"
-            )
+        cover_url = get_cover_url_volume(volume_number, series_id) or cover_url
 
-    series_title = re.sub(r"[^\w\-_\. ]", "_", series_info.get("title"))
+    series_title = mangadex_dlz.make_name_safe(series_info["title"])
     cover_path = os.path.join(output_directory, f"{series_title}/cover.jpg")
 
     try:
@@ -267,7 +327,8 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
 
     try:
         response = mangadex_dlz.get_mangadex_response(
-            f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}&limit=50&offset={offset}"
+            f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}"
+            "&limit=50&offset={offset}"
         )
     except (HTTPError, Timeout) as err:
         raise RequestException from err

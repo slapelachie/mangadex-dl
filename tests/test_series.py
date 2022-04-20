@@ -1,6 +1,7 @@
 import unittest
 import warnings
 import json
+from datetime import date
 
 import requests
 
@@ -8,33 +9,96 @@ import mangadex_dlz
 
 
 class TestSeries(unittest.TestCase):
-    def test_get_series_info(self):
-        expected_keys = ["id", "title", "description", "year", "author"]
-        series_info = mangadex_dlz.series.get_series_info(
-            "a96676e5-8ae2-425e-b549-7f15dd34a6d8"
+    def setUp(self):
+        self.attributes = {
+            "title": {"en": "alpha", "ja-ro": "beta", "ja": "charlie"},
+            "id": "delta",
+            "description": {"en": "echo", "ja": "foxtrot"},
+            "year": 2000,
+        }
+
+        self.relationships = [
+            {"type": "golf", "attributes": {"name": "hotel"}},
+            {"type": "author", "attributes": {"name": "india"}},
+            {"type": "cover_art", "attributes": {"fileName": "juliett"}},
+        ]
+
+    def test_get_series_title(self):
+        title_info = self.attributes["title"]
+        self.assertEqual(mangadex_dlz.series.get_series_title(title_info), "alpha")
+
+    def test_get_series_author(self):
+        self.assertEqual(
+            mangadex_dlz.series.get_series_author(self.relationships), "india"
         )
 
-        self.assertEqual(len(series_info), 6)
+    def test_get_series_author_no_relationships(self):
+        self.assertEqual(mangadex_dlz.series.get_series_author([]), "No Author")
 
-        self.assertTrue(all(key in series_info for key in expected_keys))
+    def test_get_series_cover_art_url(self):
+        self.assertEqual(
+            mangadex_dlz.series.get_series_cover_art_url("delta", self.relationships),
+            "https://uploads.mangadex.org/covers/delta/juliett.512.jpg",
+        )
 
-        self.assertIsInstance(series_info.get("id"), str)
-        self.assertIsInstance(series_info.get("title"), str)
-        self.assertIsInstance(series_info.get("description"), str)
-        self.assertIsInstance(series_info.get("year"), int)
-        self.assertIsInstance(series_info.get("author"), str)
+    def test_parse_series_info(self):
+        expected = {
+            "id": "delta",
+            "title": "alpha",
+            "description": "echo",
+            "year": 2000,
+            "author": "india",
+            "cover_art_url": "https://uploads.mangadex.org/covers/delta/juliett.512.jpg",
+        }
+
+        self.assertDictEqual(
+            mangadex_dlz.series.parse_series_info(
+                "delta", self.attributes, self.relationships
+            ),
+            expected,
+        )
+
+    def test_parse_series_info_no_description(self):
+        self.attributes["description"] = {"ja": "foxtrot"}
+        expected = {
+            "id": "delta",
+            "title": "alpha",
+            "description": "",
+            "year": 2000,
+            "author": "india",
+            "cover_art_url": "https://uploads.mangadex.org/covers/delta/juliett.512.jpg",
+        }
+
+        self.assertDictEqual(
+            mangadex_dlz.series.parse_series_info(
+                "delta", self.attributes, self.relationships
+            ),
+            expected,
+        )
+
+    def test_parse_series_info_no_date(self):
+        self.attributes["year"] = None
+        expected = {
+            "id": "delta",
+            "title": "alpha",
+            "description": "echo",
+            "year": date.today().year,
+            "author": "india",
+            "cover_art_url": "https://uploads.mangadex.org/covers/delta/juliett.512.jpg",
+        }
+
+        self.assertDictEqual(
+            mangadex_dlz.series.parse_series_info(
+                "delta", self.attributes, self.relationships
+            ),
+            expected,
+        )
 
     def test_get_seroes_info_bad_id(self):
         with self.assertRaises(requests.RequestException):
             _ = mangadex_dlz.series.get_series_info(
                 "e86ec2c4-c5e4-4710-bfaa-7604f00939c9"
             )
-
-    def test_get_series_info_bad_data(self):
-        warnings.warn("Test not implemented")
-
-    def test_get_series_chapters(self):
-        warnings.warn("Test not implemented")
 
     def test_get_grouped_chapter_ids_from_volumes(self):
         volumes = {"1": {"1": ["a", "e"], "2": ["b"]}, "2": {"3": ["c"], "4": ["d"]}}
@@ -85,59 +149,6 @@ class TestSeries(unittest.TestCase):
             ),
             {},
         )
-
-    def test_process_mangadex_volumes_no_volume(self):
-        with self.assertRaises(KeyError):
-            _ = mangadex_dlz.series.process_mangadex_volumes(
-                {"1": {"count": 2, "chapters": {}}}
-            )
-
-    def test_process_mangadex_volumes_no_chapters(self):
-        with self.assertRaises(KeyError):
-            _ = mangadex_dlz.series.process_mangadex_volumes(
-                {
-                    "1": {
-                        "volume": "1",
-                        "count": 2,
-                    }
-                }
-            )
-
-    def test_process_mangadex_volumes_no_chapter(self):
-        with self.assertRaises(KeyError):
-            _ = mangadex_dlz.series.process_mangadex_volumes(
-                {
-                    "1": {
-                        "volume": "1",
-                        "count": 2,
-                        "chapters": {"id": "foo", "others": [], "count": 1},
-                    }
-                }
-            )
-
-    def test_process_mangadex_volumes_no_id(self):
-        with self.assertRaises(KeyError):
-            _ = mangadex_dlz.series.process_mangadex_volumes(
-                {
-                    "1": {
-                        "volume": "1",
-                        "count": 2,
-                        "chapters": {"chapter": "1", "others": [], "count": 1},
-                    }
-                }
-            )
-
-    def test_process_mangadex_volumes_no_others(self):
-        with self.assertRaises(KeyError):
-            _ = mangadex_dlz.series.process_mangadex_volumes(
-                {
-                    "1": {
-                        "volume": "1",
-                        "count": 2,
-                        "chapters": {"chapter": "1", "id": "foo", "count": 1},
-                    }
-                }
-            )
 
 
 if __name__ == "__main__":

@@ -13,13 +13,22 @@ class ChapterInfo(TypedDict):
 
 
 class SeriesInfo(TypedDict):
-    """Typehint for series info return"""
+    """
+    Typehint for series info return.
+    Example: {"id": "a96676e5-8ae2-425e-b549-7f15dd34a6d8",
+              "title": "Komi-san wa Komyushou Desu.",
+              "description": "Komi-san is a beautiful and...", # truncated for readability
+              "year": 2016,
+              "author": "Oda Tomohito",
+              "cover_art_url": "https://uploads.mangadex.org/..."} # truncated for readability
+    """
 
     id: str
     title: str
     description: str
     year: int
     author: str
+    cover_art_url: str
 
 
 class VolumeInfo(TypedDict):
