@@ -9,6 +9,7 @@ from typing import List, Tuple, Dict
 
 import tqdm
 from requests import RequestException
+from PIL.Image import Image
 
 import mangadex_dlz
 from mangadex_dlz.exceptions import (
@@ -18,6 +19,7 @@ from mangadex_dlz.exceptions import (
 )
 from mangadex_dlz import series as md_series
 from mangadex_dlz import chapter as md_chapter
+from mangadex_dlz.typehints import ChapterInfo, SeriesInfo
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
@@ -104,16 +106,9 @@ class MangaDexDL:
         chapter_info: mangadex_dlz.ChapterInfo,
         series_info: mangadex_dlz.SeriesInfo,
     ):
-        if "title" not in series_info or not all(
-            key in chapter_info for key in ["chapter", "title", "id"]
-        ):
-            raise KeyError(
-                "Needed information from chapter or series not present! Exiting..."
-            )
-
-        series_title = series_info.get("title")
-        chapter_number = chapter_info.get("chapter")
-        chapter_title = chapter_info.get("title")
+        series_title = series_info["title"]
+        chapter_number = chapter_info["chapter"]
+        chapter_title = chapter_info["title"]
 
         logger.debug(
             'Processing "%s" chapter "%s %s"',
@@ -180,6 +175,28 @@ class MangaDexDL:
 
         return chapters
 
+    def _get_chapter_out_directory(self, series_title, chapter_number, chapter_title):
+        return os.path.join(
+            self._output_directory,
+            os.path.join(
+                mangadex_dlz.make_name_safe(series_title),
+                md_chapter.get_chapter_directory(chapter_number, chapter_title),
+            ),
+        )
+
+    def _save_chapter_cover(
+        self, chapter: ChapterInfo, series_title: str, volume_images: Dict[str, Image]
+    ):
+        chapter_directory = self._get_chapter_out_directory(
+            series_title, chapter["chapter"], chapter["title"]
+        )
+
+        volume_number = str(chapter.get("volume") or "")
+        if volume_number != "":
+            volume_image = volume_images.get(volume_number)
+            if volume_image is not None:
+                volume_image.save(f"{chapter_directory}.jpg")
+
     def _download_chapter_covers(
         self,
         series_info: mangadex_dlz.SeriesInfo,
@@ -189,14 +206,14 @@ class MangaDexDL:
         downloaded_chapter_images = md_series.get_downloaded_chapter_content(
             os.path.join(
                 self._output_directory,
-                mangadex_dlz.make_name_safe(series_info.get("title")),
+                mangadex_dlz.make_name_safe(series_title),
             ),
             "jpg",
         )
 
         logger.debug("Getting volume images for %s", series_title)
         volume_images = md_series.get_needed_volume_images(
-            series_info.get("id"),
+            series_info["id"],
             chapters,
             excluded_chapters=downloaded_chapter_images,
         )
@@ -209,26 +226,7 @@ class MangaDexDL:
             position=1,
             leave=False,
         ):
-            if not all(key in chapter for key in ["chapter", "volume", "title"]):
-                raise KeyError(
-                    "One of the needed fields in the parsed chapters is not valid!"
-                )
-
-            chapter_directory = os.path.join(
-                self._output_directory,
-                os.path.join(
-                    mangadex_dlz.make_name_safe(series_title),
-                    md_chapter.get_chapter_directory(
-                        chapter.get("chapter"), chapter.get("title")
-                    ),
-                ),
-            )
-
-            volume_number = str(chapter.get("volume") or "")
-            if volume_number != "":
-                volume_image = volume_images.get(volume_number)
-                if volume_image is not None:
-                    volume_image.save(f"{chapter_directory}.jpg")
+            self._save_chapter_cover(chapter, series_title, volume_images)
 
     def _get_pending_chapters_from_volumes(
         self, volumes: Dict[str, Dict[str, List[str]]]
@@ -247,17 +245,8 @@ class MangaDexDL:
         series_info: mangadex_dlz.SeriesInfo,
         volumes: List[mangadex_dlz.VolumeInfo],
     ):
-        if "title" not in series_info:
-            logger.error("Could not get title from the parsed series info")
-
-        volume_numbers = []
-        for raw_volume_number in volumes:
-            try:
-                volume_number = int(raw_volume_number)
-            except ValueError:
-                volume_number = 0
-
-            volume_numbers.append(volume_number)
+        raw_volume_numbers = list(volumes)
+        volume_numbers = convert_raw_volume_numbers(raw_volume_numbers)
 
         try:
             md_series.download_cover(
@@ -269,6 +258,32 @@ class MangaDexDL:
             logger.exception(err)
         else:
             logger.info("Downloaded cover for %s", series_info.get("title"))
+
+    def _get_cover_chapters_from_type(
+        self, mangadex_type: str, resource_id: str
+    ) -> Tuple[SeriesInfo, List[ChapterInfo]]:
+        if mangadex_type == "title":
+            series_info = md_series.get_series_info(resource_id)
+            series_volumes = md_series.get_volumes_from_series(resource_id)
+
+            grouped_chapter_ids = md_series.get_grouped_chapter_ids_from_volumes(
+                series_volumes
+            )
+            pending_chapter_ids = md_chapter.get_ids_matched(
+                grouped_chapter_ids, self._get_chapters_from_cache()
+            )
+            return (
+                series_info,
+                md_series.get_series_chapters(pending_chapter_ids, self._progress_bars),
+            )
+
+        if mangadex_type == "chapter":
+            chapter_info = md_chapter.get_chapter_info(resource_id)
+            series_info = md_series.get_series_info(chapter_info.get("series_id"))
+
+            return (series_info, [chapter_info])
+
+        return (None, None)
 
     def download(self, url: str):
         """
@@ -379,38 +394,20 @@ class MangaDexDL:
         logger.debug("Supplied URL is of type %s", mangadex_type)
         logger.debug("Resource ID is %s", resource_id)
 
-        if mangadex_type == "title":
-            try:
-                series_info = md_series.get_series_info(resource_id)
-                series_volumes = md_series.get_volumes_from_series(resource_id)
-            except (ValueError, RequestException) as err:
-                logger.exception(err)
-                sys.exit(1)
-
-            grouped_chapter_ids = md_series.get_grouped_chapter_ids_from_volumes(
-                series_volumes
+        try:
+            series_info, chapters = self._get_cover_chapters_from_type(
+                mangadex_type, resource_id
             )
-            pending_chapter_ids = md_chapter.get_ids_matched(
-                grouped_chapter_ids, self._get_chapters_from_cache()
-            )
-            chapters = md_series.get_series_chapters(
-                pending_chapter_ids, self._progress_bars
-            )
-        elif mangadex_type == "chapter":
-            try:
-                chapter_info = md_chapter.get_chapter_info(resource_id)
-                series_info = md_series.get_series_info(chapter_info.get("series_id"))
-            except (RequestException, ValueError, KeyError) as err:
-                logger.exception(err)
-                sys.exit(1)
-            except ExternalChapterError:
-                logger.info("Chapter is from an external source, skipping...")
-                return
-
-            chapters = [chapter_info]
-        else:
-            logger.critical("MangaDex resource type is unhandled!")
+        except (RequestException, ValueError, KeyError) as err:
+            logger.exception(err)
             sys.exit(1)
+        except ExternalChapterError:
+            logger.info("Chapter is from an external source, skipping...")
+            return
+
+        if series_info is None or chapters is None:
+            logger.warning("Cover information was not able to be retrieved")
+            return
 
         series_directory = os.path.join(
             self._output_directory,
@@ -471,3 +468,16 @@ def get_mangadex_resource(url: str) -> Tuple[str, str]:
         raise ValueError("Could not get resource type or resource UUID!") from err
 
     return (mangadex_type, resource)
+
+
+def convert_raw_volume_numbers(raw_volume_numbers: List[str]) -> List[int]:
+    volume_numbers = []
+    for raw_volume_number in raw_volume_numbers:
+        try:
+            volume_number = int(raw_volume_number)
+        except ValueError:
+            volume_number = 0
+
+        volume_numbers.append(volume_number)
+
+    return volume_numbers
