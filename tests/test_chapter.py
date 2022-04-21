@@ -26,13 +26,19 @@ class TestChapter(unittest.TestCase):
         )
 
     def test_parse_chapter_info(self):
-        attributes = {"volume": "1", "chapter": "1.5", "title": "alpha"}
+        attributes = {
+            "volume": "1",
+            "chapter": "1.5",
+            "title": "alpha",
+            "publishAt": "2022-04-14T14:42:30+00:00",
+        }
         expected_info = {
             "id": "beta",
             "series_id": "charlie",
             "chapter": 1.5,
             "volume": 1,
             "title": "alpha",
+            "published_time": "2022-04-14T14:42:30+00:00",
         }
 
         self.assertDictEqual(
@@ -41,13 +47,23 @@ class TestChapter(unittest.TestCase):
         )
 
     def test_parse_chapter_info_bad_chapter(self):
-        attributes = {"volume": "1", "chapter": "delta", "title": "alpha"}
+        attributes = {
+            "volume": "1",
+            "chapter": "delta",
+            "title": "alpha",
+            "publishAt": "2022-04-14T14:42:30+00:00",
+        }
 
         with self.assertRaises(ValueError):
             mangadex_dlz.chapter.parse_chapter_info("beta", "charlie", attributes)
 
     def test_parse_chapter_info_bad_volume(self):
-        attributes = {"volume": "delta", "chapter": "1.5", "title": "alpha"}
+        attributes = {
+            "volume": "delta",
+            "chapter": "1.5",
+            "title": "alpha",
+            "publishAt": "2022-04-14T14:42:30+00:00",
+        }
 
         with self.assertRaises(ValueError):
             mangadex_dlz.chapter.parse_chapter_info("beta", "charlie", attributes)

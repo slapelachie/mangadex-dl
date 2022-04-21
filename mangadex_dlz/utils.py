@@ -10,7 +10,7 @@ import io
 from time import sleep, time
 from typing import Dict
 from math import floor
-from datetime import date
+from datetime import date, datetime
 
 import requests
 from dict2xml import dict2xml
@@ -135,7 +135,9 @@ def create_comicinfo_json(chapter: ChapterInfo, series: SeriesInfo) -> ComicInfo
         chapter (ChapterInfo): the chapter information (see mangadex_dlz.chapter.get_chapter_info)
         series (SeriesInfo): the series information (see mangadex_dlz.series.get_series_info)
     """
-    series_year = series.get("year", date.today().year) or date.today().year
+    published_time_raw = chapter["published_time"]
+    published_time = datetime.strptime(published_time_raw[:10], "%Y-%m-%d")
+
     chapter_number = f'{chapter["chapter"]:.1f}'.rstrip("0").rstrip(".")
 
     data = {
@@ -143,7 +145,9 @@ def create_comicinfo_json(chapter: ChapterInfo, series: SeriesInfo) -> ComicInfo
         "Series": series["title"],
         "Summary": series["description"],
         "Number": chapter_number,
-        "Year": series_year,
+        "Year": published_time.year,
+        "Month": published_time.month,
+        "Day": published_time.day,
         "Writer": series["author"],
         "Manga": "YesAndRightToLeft",
     }

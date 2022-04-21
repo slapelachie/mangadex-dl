@@ -328,7 +328,7 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     try:
         response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}"
-            "&limit=50&offset={offset}"
+            f"&limit=50&offset={offset}"
         )
     except (HTTPError, Timeout) as err:
         raise RequestException from err

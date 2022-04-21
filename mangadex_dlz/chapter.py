@@ -3,6 +3,7 @@ import os
 import json
 import logging
 from typing import List, Dict, Tuple
+from datetime import datetime
 
 import tqdm
 from requests import HTTPError, Timeout, RequestException
@@ -88,6 +89,11 @@ def parse_chapter_info(
     fallback_title = f"Chapter {chapter_number}"
     chapter_title = attributes["title"] or fallback_title
 
+    published_time = (
+        attributes.get("publishAt")
+        or datetime.utcnow().replace(microsecond=0).isoformat()
+    )
+
     logger.debug('Got chapter information for "%s %s"', chapter_number, chapter_title)
 
     return {
@@ -96,6 +102,7 @@ def parse_chapter_info(
         "chapter": chapter_number,
         "volume": volume_number,
         "title": chapter_title,
+        "published_time": published_time,
     }
 
 

@@ -13,6 +13,7 @@ class TestUtils(unittest.TestCase):
             "chapter": 1.0,
             "volume": 2,
             "title": "charlie",
+            "published_time": "2022-04-14T14:42:30+00:00",
         }
         self.series = {
             "id": "delta",
@@ -27,7 +28,9 @@ class TestUtils(unittest.TestCase):
             "Series": "echo",
             "Summary": "foxtrot",
             "Number": "1",
-            "Year": 2000,
+            "Year": 2022,
+            "Month": 4,
+            "Day": 14,
             "Writer": "golf",
             "Manga": "YesAndRightToLeft",
         }

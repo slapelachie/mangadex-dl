@@ -10,6 +10,7 @@ class ChapterInfo(TypedDict):
     chapter: float
     volume: int
     title: str
+    publish_time: str
 
 
 class SeriesInfo(TypedDict):
