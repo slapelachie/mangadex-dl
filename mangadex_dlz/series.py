@@ -308,23 +308,20 @@ def download_cover(
         raise OSError("Failed to download and save cover image!") from err
 
 
-def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
+def get_cover_art_mangadex(series_id: str, offset: int) -> Tuple[int, List[Dict]]:
     """
-    Get the cover art urls for the series
+    Get the cover art data for the given series id
 
     Arguments:
         series_id (str): the series UUID to download covers from
+        offset(int): the offset of the response
 
     Returns:
-        (Dict[str, str]): a dictionary containing the covers. For example:
-            {"2": "26130c5c-eb15-4ff6-acb9-27532d5ee5c5.jpg",
-             "3": "1a9286d5-55d9-4033-b73f-3948e3b27eeb.jpg"}
+        (int, Tuple[Dict]): the total covers retrieved and the data collected
 
     Raises:
         requests.RequestException: if the list of chapters cannot be downloaded
     """
-    cover_art_volumes = {}
-
     try:
         response = mangadex_dlz.get_mangadex_response(
             f"https://api.mangadex.org/cover?locales[]=ja&manga[]={series_id}"
@@ -333,28 +330,27 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     except (HTTPError, Timeout) as err:
         raise RequestException from err
 
-    # Get all avaliable covers
-    total_covers = response.get("total", 0)
-    if total_covers > (offset + 50):
-        cover_art_volumes = cover_art_volumes | get_cover_art_volumes(
-            series_id, (offset + 50)
-        )
+    return (response["total"], response["data"])
 
-    data = response.get("data")
-    if data is None:
-        raise ValueError(f"Could not get volume images for {series_id}")
 
-    for volume in data:
+def get_volumes_from_data(volume_data: List[Dict]) -> Dict[str, str]:
+    """
+    Get the cover art urls for the series from the given data
+
+    Arguments:
+        volume_data (List[Dict]): the data retrieved from get_cover_art_mangadex()
+
+    Returns:
+        (Dict[str, str]): a dictionary containing the covers. For example:
+            {"2": "26130c5c-eb15-4ff6-acb9-27532d5ee5c5.jpg",
+             "3": "1a9286d5-55d9-4033-b73f-3948e3b27eeb.jpg"}
+    """
+    cover_art_volumes = {}
+    for volume in volume_data:
         if volume.get("type") != "cover_art":
             continue
 
-        volume_attributes = volume.get("attributes")
-        if volume_attributes is None:
-            raise ValueError(f"Could not get volume images for {series_id}")
-
-        if not all(key in volume_attributes for key in ["volume", "fileName"]):
-            raise ValueError(f"Could not get volume images for {series_id}")
-
+        volume_attributes = volume["attributes"]
         cover_art_volumes[volume_attributes.get("volume")] = volume_attributes.get(
             "fileName"
         )
@@ -362,29 +358,46 @@ def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     return cover_art_volumes
 
 
-def get_downloaded_chapter_content(
-    series_directory: str, extension: str
-) -> List[float]:
+def get_cover_art_volumes(series_id: str, offset: int = 0) -> Dict[str, str]:
     """
-    Gets a list of chapter numbers already downloaded in the series directory
+    Get the cover art urls for the series
 
     Arguments:
-        series_directory (str): the series directory to check for the images
+        series_id (str): the series UUID to download covers from
+        offset(int): the offset of the response
+
+    Returns:
+        (Dict[str, str]): a dictionary containing the covers. For example:
+            {"2": "26130c5c-eb15-4ff6-acb9-27532d5ee5c5.jpg",
+             "3": "1a9286d5-55d9-4033-b73f-3948e3b27eeb.jpg"}
+    """
+    total_covers, data = get_cover_art_mangadex(series_id, offset)
+
+    cover_art_volumes = get_volumes_from_data(data)
+    if total_covers > (offset + 50):
+        cover_art_volumes = cover_art_volumes | get_cover_art_volumes(
+            series_id, (offset + 50)
+        )
+
+    return cover_art_volumes
+
+
+def get_chapter_numbers_from_extension(
+    directory_content: List[str], extension: str
+) -> List[float]:
+    """
+    Gets a list of chapter numbers in the provided directory content, matches to files of the
+    provided extension
+
+    Arguments:
+        directory_content (List[str]): the filenames of files
+        extension (str): the extension to match to
 
     Returns:
         (List[float]): a list of all the chapter numbers
     """
     downloaded_chapters = []
-    directory_images = []
-
-    if os.path.exists(series_directory):
-        directory_images = os.listdir(
-            series_directory,
-        )
-    else:
-        return []
-
-    for chapter_image in directory_images:
+    for chapter_image in directory_content:
         if chapter_image.endswith(f".{extension}"):
             search = re.search(
                 r"([0-9]{3,}(?:.[0-9]{1,})?)\ ([\w\-_\. ]+)", chapter_image
@@ -403,6 +416,26 @@ def get_downloaded_chapter_content(
             downloaded_chapters.append(chapter_number)
 
     return downloaded_chapters
+
+
+def get_downloaded_chapter_content(
+    series_directory: str, extension: str
+) -> List[float]:
+    """
+    Gets a list of chapter numbers already downloaded in the series directory
+
+    Arguments:
+        series_directory (str): the series directory to check for the images
+
+    Returns:
+        (List[float]): a list of all the chapter numbers
+    """
+    if os.path.exists(series_directory):
+        directory_content = os.listdir(series_directory)
+    else:
+        return []
+
+    return get_chapter_numbers_from_extension(directory_content, extension)
 
 
 def get_needed_volume_images(
@@ -429,11 +462,6 @@ def get_needed_volume_images(
     cover_art_volumes = get_cover_art_volumes(series_id)
 
     for chapter in chapters:
-        if not all(key in chapter for key in ["volume", "chapter"]):
-            raise KeyError(
-                "Volume or Chapter key in one of the parsed chapters is not valid!"
-            )
-
         if chapter.get("chapter") in excluded_chapters:
             continue
 

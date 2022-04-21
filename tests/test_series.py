@@ -1,5 +1,4 @@
 import unittest
-import warnings
 import json
 from datetime import date
 
@@ -148,6 +147,36 @@ class TestSeries(unittest.TestCase):
                 {"1": {"volume": "1", "count": 2, "chapters": {}}}
             ),
             {},
+        )
+
+    def test_get_volumes_from_data(self):
+        volume_data = [
+            {"type": "alpha", "attributes": {"volume": "1", "fileName": "beta"}},
+            {"type": "cover_art", "attributes": {"volume": "2", "fileName": "charlie"}},
+            {"type": "cover_art", "attributes": {"volume": "3", "fileName": "delta"}},
+        ]
+
+        self.assertDictEqual(
+            mangadex_dlz.series.get_volumes_from_data(volume_data),
+            {"2": "charlie", "3": "delta"},
+        )
+
+    def test_get_chapter_numbers_from_extension(self):
+        directory_content = [
+            "alpha.ext",
+            "1 beta.ext",
+            "02 charlie.ext",
+            "003 delta.ext",
+            "003.5 delta.ext",
+            "004 echo.foo",
+            "0005 foxtrot.ext",
+        ]
+
+        self.assertListEqual(
+            mangadex_dlz.series.get_chapter_numbers_from_extension(
+                directory_content, "ext"
+            ),
+            [3.0, 3.5, 5.0],
         )
 
 
