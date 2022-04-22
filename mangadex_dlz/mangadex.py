@@ -283,7 +283,7 @@ class MangaDexDL:
 
             return (series_info, [chapter_info])
 
-        return (None, None)
+        raise ValueError("Cover information was not able to be retrieved")
 
     def download(self, url: str):
         """
@@ -403,10 +403,6 @@ class MangaDexDL:
             sys.exit(1)
         except ExternalChapterError:
             logger.info("Chapter is from an external source, skipping...")
-            return
-
-        if series_info is None or chapters is None:
-            logger.warning("Cover information was not able to be retrieved")
             return
 
         series_directory = os.path.join(

@@ -1,15 +1,14 @@
 """Functions related to chapters"""
-import os
 import json
 import logging
 from typing import List, Dict, Tuple
 from datetime import datetime
 
-import tqdm
 from requests import HTTPError, Timeout, RequestException
 
 import mangadex_dlz
 from mangadex_dlz.exceptions import ExternalChapterError
+from mangadex_dlz.threaded_downloader import ThreadedDownloader
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
@@ -220,21 +219,13 @@ def download_chapter(
     )
 
     image_urls = get_chapter_image_urls(chapter["id"])
-
-    # Download each page
-    for i, url in enumerate(
-        tqdm.tqdm(
-            image_urls,
-            ascii=True,
-            desc=f"{chapter_number} {chapter_title}",
-            disable=not progress_bars,
-            position=0,
-            leave=False,
-        ),
-        start=1,
-    ):
-        file_path = os.path.join(output_directory, f"{i:03}.jpg")
-        mangadex_dlz.download_image(url, file_path, enable_reporting=enable_reporting)
+    threaded_downloader = ThreadedDownloader(
+        output_directory,
+        enable_reporting=enable_reporting,
+        progress_bars=progress_bars,
+        progress_desc=f"{chapter_number} {chapter_title}",
+    )
+    threaded_downloader.download_chapter(image_urls)
 
 
 def get_chapter_cache(cache_file_path: str) -> Dict[str, List[str]]:

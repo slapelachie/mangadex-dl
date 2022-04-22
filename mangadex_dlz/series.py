@@ -12,6 +12,7 @@ from PIL.Image import Image
 import mangadex_dlz
 from mangadex_dlz import chapter as md_chapter
 from mangadex_dlz.exceptions import ExternalChapterError
+from mangadex_dlz.threaded_downloader import ThreadedRequest
 
 logger = logging.getLogger(__name__)
 logger.addHandler(mangadex_dlz.TqdmLoggingHandler())
@@ -236,22 +237,10 @@ def get_series_chapters(
         (List[SeriesInfo]): returns the list of chapters and their relevent information
             (see get_series_info)
     """
-    chapter_list = []
-    for chapter_id in tqdm.tqdm(
-        chapter_ids,
-        ascii=True,
-        desc="Chapter Info",
-        disable=not progress_bars,
-        position=1,
-        leave=False,
-    ):
-        try:
-            chapter_list.append(md_chapter.get_chapter_info(chapter_id))
-        except ExternalChapterError:
-            logger.info("Chapter is from an external source, skipping...")
-            continue
-
-    return chapter_list
+    threaded_downloader = ThreadedRequest(
+        progress_bars=progress_bars, progress_desc="Chapter Info"
+    )
+    return threaded_downloader.get_chapters(chapter_ids)
 
 
 def get_cover_url_volume(volume_number: int, series_id: str) -> str:
