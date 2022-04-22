@@ -170,13 +170,14 @@ class TestSeries(unittest.TestCase):
             "003.5 delta.ext",
             "004 echo.foo",
             "0005 foxtrot.ext",
+            "006 35 delta.ext",
         ]
 
         self.assertListEqual(
             mangadex_dlz.series.get_chapter_numbers_from_extension(
                 directory_content, "ext"
             ),
-            [3.0, 3.5, 5.0],
+            [3.0, 3.5, 5.0, 6.0],
         )
 
 

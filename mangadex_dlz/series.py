@@ -389,7 +389,7 @@ def get_chapter_numbers_from_extension(
     for chapter_image in directory_content:
         if chapter_image.endswith(f".{extension}"):
             search = re.search(
-                r"([0-9]{3,}(?:.[0-9]{1,})?)\ ([\w\-_\. ]+)", chapter_image
+                r"([0-9]{3,}(?:\.[0-9]{1,})?)\ ([\w\-_\. ]+)", chapter_image
             )
             chapter_number = None
             try:
